@@ -543,6 +543,7 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
     return {
       pdfPath: contract.pdfArchive.pdfPath,
       pdfHash: contract.pdfArchive.pdfHash,
+      signedAt: contract.signedAt?.toISOString() ?? null,
       alreadyGenerated: true
     };
   }
@@ -619,6 +620,7 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
   return {
     pdfPath,
     pdfHash,
+    signedAt: archivedAt.toISOString(),
     alreadyGenerated: false
   };
 }

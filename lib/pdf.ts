@@ -193,7 +193,7 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   drawBullet("乙方（受託人）", `${snapshot.borrowerHint.name ?? contract.borrowerSnapshot?.fullName ?? "待定"}（${snapshot.borrowerHint.phone}）`);
   drawBullet("車輛", `${snapshot.vehicle.plate} / ${snapshot.vehicle.model} / ${snapshot.vehicle.color} / ${snapshot.vehicle.year}`);
   drawBullet("委託期間", `${format(new Date(snapshot.schedule.borrowStartAt), "yyyy/MM/dd HH:mm", { locale: zhTW })} 至 ${format(new Date(snapshot.schedule.borrowEndAt), "yyyy/MM/dd HH:mm", { locale: zhTW })}`);
-  drawBullet("每日逾期違約金", `新臺幣 ${snapshot.finance.overduePenaltyPerDay} 元`);
+  drawBullet("逾期未還責任", "依契約與實際損失處理");
   if (snapshot.terms.specialTerms) drawBullet("特殊約定", snapshot.terms.specialTerms);
   drawBullet("管轄法院", snapshot.terms.courtJurisdiction);
 
@@ -210,7 +210,7 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   // 證據摘要頁
   ensureSpace(180);
   drawLine("二、簽署紀錄摘要頁", { bold: true });
-  drawBullet("連線來源", contract.ipAddress ?? "未記錄");
+  drawBullet("簽署環境來源", contract.ipAddress ?? "未記錄");
   drawBullet("裝置資訊", contract.userAgent ?? "未記錄");
   drawBullet("定位狀態", contract.gpsStatus ?? "未記錄");
   drawBullet(

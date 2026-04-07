@@ -13,7 +13,7 @@ import { SignatureCanvas } from "./signature-canvas";
 import { cn, maskId, maskPhone } from "@/lib/utils";
 import { buildLegalDocumentText } from "@/lib/contract";
 
-const steps = ["車主資料", "閱讀條款", "同意確認", "定位佐證", "OTP", "親簽", "完成"];
+const steps = ["車主資料", "閱讀條款", "同意確認", "環境佐證", "OTP", "親簽", "完成"];
 const consentItems = [
   ["full_read", "我已完整閱讀並同意本車主委託放租契約全部條款"],
   ["electronic_signature", "我同意以電子方式簽署本委託書"],
@@ -89,6 +89,7 @@ export function SigningWorkflow({ token, initial }: Props) {
   const [otpCooldown, setOtpCooldown] = useState(0);
   const [signatureFullscreenOpen, setSignatureFullscreenOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
   const [completed, setCompleted] = useState<any>(null);
 
   const liveSnapshot = useMemo(() => {
@@ -122,6 +123,7 @@ export function SigningWorkflow({ token, initial }: Props) {
   const document = useMemo(() => buildLegalDocumentText(liveSnapshot, initial.contract.contractNo), [liveSnapshot, initial.contract.contractNo]);
   const sections = Array.isArray(document.sections) ? document.sections : [];
   const totalSections = sections.length;
+  const canComplete = Boolean(signature && otpInfo?.verified);
 
   useEffect(() => {
     if (otpCooldown <= 0) return;
@@ -189,7 +191,7 @@ export function SigningWorkflow({ token, initial }: Props) {
     const send = async (payload: any) => {
       const result = await postJson(`/api/sign/${token}/gps`, payload);
       setGpsState(result.gps);
-      setStatusMessage("定位佐證已記錄");
+      setStatusMessage("環境佐證已記錄");
       setActiveStep(3);
     };
     try {
@@ -220,7 +222,7 @@ export function SigningWorkflow({ token, initial }: Props) {
         );
       });
     } catch (error) {
-      await send({ gpsStatus: "error", errorMessage: error instanceof Error ? error.message : "GPS capture failed" });
+      await send({ gpsStatus: "error", errorMessage: error instanceof Error ? error.message : "佐證擷取失敗" });
     } finally {
       setLoading(false);
     }
@@ -271,7 +273,8 @@ export function SigningWorkflow({ token, initial }: Props) {
 
   async function completeSigning() {
     setLoading(true);
-    setStatusMessage(null);
+    setCompleteError(null);
+    setStatusMessage("正在封存簽署內容，請稍候...");
     try {
       const result = await postJson(`/api/sign/${token}/complete`, {
         signatureDataUrl: signature,
@@ -280,12 +283,14 @@ export function SigningWorkflow({ token, initial }: Props) {
       setCompleted(result);
       setStatusMessage("簽署完成，PDF 已封存");
       setActiveStep(6);
+      setShowConfirm(false);
       router.refresh();
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "完成失敗");
+      const message = error instanceof Error ? error.message : "完成失敗";
+      setCompleteError(message);
+      setStatusMessage(message);
     } finally {
       setLoading(false);
-      setShowConfirm(false);
     }
   }
 
@@ -314,6 +319,56 @@ export function SigningWorkflow({ token, initial }: Props) {
     return Boolean(completed);
   };
 
+  if (completed) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center">
+          <section className="w-full rounded-[28px] border border-emerald-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
+            <div className="space-y-6">
+              <div className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium tracking-wide text-emerald-700">簽署完成</div>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">契約已封存</h1>
+                <p className="max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+                  您的簽署內容、親簽圖與最終 PDF 已完成封存。此版本為正式合約版本，可直接下載留存。
+                </p>
+              </div>
+
+              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 sm:grid-cols-2">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">契約編號</div>
+                  <div className="mt-1 font-mono text-sm break-all">{initial.contract.contractNo}</div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">簽署時間</div>
+                  <div className="mt-1 text-sm">{completed?.signedAt ? formatTaiwanDateTime(completed.signedAt) : "-"}</div>
+                </div>
+                <div className="sm:col-span-2">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">PDF 狀態</div>
+                  <div className="mt-1 text-sm">{completed?.downloadUrl ? "已生成並可下載" : "已封存"}</div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {completed?.downloadUrl ? (
+                  <a href={completed.downloadUrl} className="inline-flex h-11 items-center justify-center rounded-md bg-slate-900 px-5 text-sm font-medium text-white transition-colors hover:bg-slate-800">
+                    下載最終 PDF
+                  </a>
+                ) : null}
+                <a href="/" className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100">
+                  返回首頁
+                </a>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
+                這份 PDF 為簽署當下封存版本，包含正式契約、簽署紀錄摘要與親簽圖，內容不可覆蓋修改。
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <>
       <div className="mx-auto min-h-screen max-w-6xl px-3 py-4 sm:px-4 lg:px-8">
@@ -329,13 +384,13 @@ export function SigningWorkflow({ token, initial }: Props) {
                 <div className="text-sm text-muted-foreground">車主委託放租契約</div>
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{initial.contract.contractNo}</h1>
                 <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-                  這是正式 HTML 簽署頁。你會在這裡完成車主資料填寫、契約確認、定位佐證、OTP 驗證與親簽；只有在簽署完成後，系統才會生成最終封存 PDF。
+                  這是正式 HTML 簽署頁。你會在這裡完成車主資料填寫、契約確認、環境佐證、OTP 驗證與親簽；只有在簽署完成後，系統才會生成最終封存 PDF。
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Badge>{initial.contract.status}</Badge>
                 <Badge className="bg-slate-100 text-slate-700">連線記錄</Badge>
-                <Badge className="bg-slate-100 text-slate-700">定位佐證</Badge>
+                <Badge className="bg-slate-100 text-slate-700">環境佐證</Badge>
                 <Badge className="bg-slate-100 text-slate-700">OTP 驗證</Badge>
                 <Badge className="bg-slate-100 text-slate-700">親簽封存</Badge>
               </div>
@@ -558,18 +613,18 @@ export function SigningWorkflow({ token, initial }: Props) {
 
             <Card>
               <CardHeader>
-                <CardTitle>Step 4 定位佐證</CardTitle>
-                <CardDescription>定位為簽署輔助證明資料，若拒絕也會記錄狀態，不影響流程。</CardDescription>
+                <CardTitle>Step 4 環境佐證</CardTitle>
+                <CardDescription>佐證資料為簽署輔助證明，若拒絕也會記錄狀態，不影響流程。</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <p className="rounded-xl border border-border bg-slate-50 p-3">系統將記錄簽署 IP 作為簽署證明。</p>
-                <Button type="button" onClick={captureGps} disabled={loading}>取得 GPS</Button>
+                <p className="rounded-xl border border-border bg-slate-50 p-3">系統將記錄簽署環境資訊作為簽署證明。</p>
+                <Button type="button" onClick={captureGps} disabled={loading}>記錄佐證</Button>
                 {gpsState ? (
                   <div className="rounded-xl border border-border bg-slate-50 p-3 text-xs">
-                    <div>定位狀態：{gpsState.gpsStatus}</div>
-                    <div>緯度：{gpsState.latitude ?? "-"}</div>
-                    <div>經度：{gpsState.longitude ?? "-"}</div>
-                    <div>精度：{gpsState.accuracy ?? "-"}</div>
+                    <div>佐證狀態：{gpsState.gpsStatus}</div>
+                    <div>位置：{gpsState.latitude ?? "-"}</div>
+                    <div>位置座標：{gpsState.longitude ?? "-"}</div>
+                    <div>精度值：{gpsState.accuracy ?? "-"}</div>
                   </div>
                 ) : null}
               </CardContent>
@@ -671,7 +726,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                 <p>同意內容：{initial.progress.consentsComplete ? "已完成" : "未完成"}</p>
                 <p>OTP：{initial.progress.otpVerified ? "已驗證" : "未驗證"}</p>
                 <p>親簽：{initial.progress.signatureCaptured ? "已封存" : "未封存"}</p>
-                <p>定位：{initial.contract.gpsStatus ?? "-"}</p>
+                <p>佐證：{initial.contract.gpsStatus ?? "-"}</p>
               </CardContent>
             </Card>
 
@@ -682,9 +737,9 @@ export function SigningWorkflow({ token, initial }: Props) {
               <CardContent className="space-y-3 text-sm">
                 <p>契約編號：{initial.contract.contractNo}</p>
                 <p>簽署完成時間：{completed?.signedAt ? formatTaiwanDateTime(completed.signedAt) : "尚未完成"}</p>
-                <p>PDF：{completed?.pdfUrl ? "已生成" : "尚未生成"}</p>
-                {completed?.pdfUrl ? (
-                  <a href={completed.pdfUrl} className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+                <p>PDF：{completed?.downloadUrl ? "已生成" : "尚未生成"}</p>
+                {completed?.downloadUrl ? (
+                  <a href={completed.downloadUrl} className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
                     下載 PDF
                   </a>
                 ) : null}
@@ -724,14 +779,17 @@ export function SigningWorkflow({ token, initial }: Props) {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold">確認完成簽署</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              確認送出後，系統會封存條款、簽名、OTP、定位與 PDF，且不可覆蓋修改。
+              確認送出後，系統會封存條款、簽名、驗證紀錄與 PDF，且不可覆蓋修改。
             </p>
+            {completeError ? (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{completeError}</div>
+            ) : null}
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="outline" type="button" onClick={() => setShowConfirm(false)}>
+              <Button variant="outline" type="button" onClick={() => setShowConfirm(false)} disabled={loading}>
                 取消
               </Button>
               <Button type="button" onClick={completeSigning} disabled={loading}>
-                確認送出
+                {loading ? '正在封存...' : '確認送出'}
               </Button>
             </div>
           </div>

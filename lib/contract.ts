@@ -94,8 +94,8 @@ const clauseList: ContractClause[] = [
   {
     title: "十三、逾期未還違約責任",
     paragraphs: [
-      "乙方未依約完成交接、返還或處理事項者，每逾一日應給付案件所載每日逾期違約金，並負擔因此增加之保管、拖吊、交通及其他費用。",
-      "逾期未還達甲方認為有重大風險者，甲方得不經催告逕行終止契約並採取必要之取回措施。"
+      "乙方未依約完成交接、返還或處理事項者，視為逾期未還，並應立即通知甲方並依甲方指示處理。",
+      "如有逾期未還、遲延交付或因此衍生之損害，乙方應負相關違約責任與損害賠償責任；甲方得依實際損失、必要費用及其他可請求項目另行主張權利。"
     ]
   },
   {
@@ -140,7 +140,6 @@ export function buildContractSnapshotTitle(contractNo: string) {
 }
 
 export function buildContractSections(snapshot: ContractSnapshot) {
-  const finance = snapshot.finance ?? { depositAmount: "", overduePenaltyPerDay: "0" };
   const scheduleText = `${format(new Date(snapshot.schedule.borrowStartAt), "yyyy/MM/dd HH:mm", { locale: zhTW })} 至 ${format(new Date(snapshot.schedule.borrowEndAt), "yyyy/MM/dd HH:mm", { locale: zhTW })}`;
 
   return [
@@ -149,7 +148,7 @@ export function buildContractSections(snapshot: ContractSnapshot) {
       paragraphs: [
         `本件契約以車牌 ${snapshot.vehicle.plate}、車型 ${snapshot.vehicle.model}、顏色 ${snapshot.vehicle.color}、出廠年份 ${snapshot.vehicle.year} 為標的。`,
         `委託期間為 ${scheduleText}。`,
-        `每日逾期違約金為新臺幣 ${finance.overduePenaltyPerDay} 元。`,
+        `逾期未還責任依本契約、實際損害與必要費用處理。`,
         `管轄法院約定為 ${snapshot.terms.courtJurisdiction}。`,
         snapshot.terms.specialTerms ? `特殊約定：${snapshot.terms.specialTerms}` : "本案件未另行記載特殊約定。"
       ]
@@ -172,11 +171,11 @@ export function buildContractSections(snapshot: ContractSnapshot) {
       ]
     },
     {
-      title: "委託期間與違約金",
+      title: "委託期間與違約責任",
       paragraphs: [
         `起始時間：${format(new Date(snapshot.schedule.borrowStartAt), "yyyy/MM/dd HH:mm", { locale: zhTW })}`,
         `結束時間：${format(new Date(snapshot.schedule.borrowEndAt), "yyyy/MM/dd HH:mm", { locale: zhTW })}`,
-        `每日逾期違約金：新臺幣 ${finance.overduePenaltyPerDay} 元`
+        "逾期未還責任：依本契約、實際損害與必要費用處理"
       ]
     }
   ];
