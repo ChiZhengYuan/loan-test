@@ -78,7 +78,8 @@ export function SigningWorkflow({ token, initial }: Props) {
     if (doc?.sections?.length) return doc;
     return buildLegalDocumentText(initial.snapshot, initial.contract.contractNo);
   }, [initial]);
-  const totalSections = document.sections?.length ?? 0;
+  const sections = Array.isArray(document.sections) ? document.sections : [];
+  const totalSections = sections.length;
   const stepCount = steps.length;
 
   useEffect(() => {
@@ -368,7 +369,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                   <div className="rounded-xl bg-white px-3 py-2 text-xs text-muted-foreground">文件段落 {totalSections} 段</div>
                 </div>
                 <div className="space-y-5">
-                  {document.sections.map((section: any, index: number) => (
+                  {sections.map((section: any, index: number) => (
                     <section key={section.title} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
                         <h4 className="font-semibold">{section.title}</h4>
@@ -558,3 +559,4 @@ export function SigningWorkflow({ token, initial }: Props) {
     </div>
   );
 }
+
