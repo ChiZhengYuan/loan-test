@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  contracts    ContractCase[] @relation("CreatedByAdmin")
+}
+
+model ContractCase {
+  id                       String          @id @default(cuid())
+  contractNo               String          @unique
+  signToken                String          @unique
+  publicSigningUrl         String
+  status                   String          @default("PENDING_SIGN")
+  createdByAdminId         String?
+  createdByAdmin           AdminUser?      @relation("CreatedByAdmin", fields: [createdByAdminId], references: [id])
+
+  lenderName               String
+  lenderId                  String
+  lenderPhone               String
+  borrowerNameHint         String?
+  borrowerPhone             String
+
+  vehiclePlate              String
+  vehicleModel              String
+  vehicleColor              String
+  vehicleYear               Int
+  borrowStartAt             DateTime
+  borrowEndAt               DateTime
+  depositAmount             Decimal
+  overduePenaltyPerDay      Decimal
+  specialTerms              String
+  courtJurisdiction         String
+
+  lenderSnapshotJson        String
+  borrowerSnapshotJson      String?
+  vehicleSnapshotJson       String
+  clauseSnapshotJson        String
+  consentsSnapshotJson      String?
+
+  borrowerSnapshot          BorrowerSnapshot?
+  documents                 BorrowerDocument[]
+  consentLogs               ContractConsentLog[]
+  otpLogs                   ContractOtpLog[]
+  signature                 ContractSignature?
+  pdfArchive                ContractPdfArchive?
+  auditLogs                 AuditLog[]
+
+  signedAt                  DateTime?
+  ipAddress                 String?
+  userAgent                 String?
+  gpsLatitude               Float?
+  gpsLongitude              Float?
+  gpsAccuracy               Float?
+  gpsStatus                 String?
+  gpsCapturedAt             DateTime?
+  otpCodeHash               String?
+  otpSentAt                 DateTime?
+  otpVerifiedAt             DateTime?
+  otpAttemptCount           Int             @default(0)
+  pdfPath                   String?
+  pdfHash                   String?
+  archivedAt                DateTime?
+  cancelledAt               DateTime?
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+
+  @@index([status])
+  @@index([contractNo])
+}
+
+model BorrowerSnapshot {
+  id              String       @id @default(cuid())
+  contractCaseId   String       @unique
+  contractCase     ContractCase @relation(fields: [contractCaseId], references: [id], onDelete: Cascade)
+  fullName        String
+  identityNumber  String
+  birthDate       DateTime
+  phone           String
+  address         String
+  licenseNumber   String
+  profileJson     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model BorrowerDocument {
+  id             String       @id @default(cuid())
+  contractCaseId  String
+  contractCase    ContractCase @relation(fields: [contractCaseId], references: [id], onDelete: Cascade)
+  documentType   String
+  fileName       String
+  filePath       String
+  mimeType       String
+  fileSize       Int
+  sha256         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model ContractConsentLog {
+  id             String       @id @default(cuid())
+  contractCaseId  String
+  contractCase    ContractCase @relation(fields: [contractCaseId], references: [id], onDelete: Cascade)
+  consentKey     String
+  consentValue   Boolean
+  consentAt      DateTime     @default(now())
+  ipAddress      String?
+  userAgent      String?
+}
+
+model ContractOtpLog {
+  id             String       @id @default(cuid())
+  contractCaseId  String
+  contractCase    ContractCase @relation(fields: [contractCaseId], references: [id], onDelete: Cascade)
+  action         String
+  phone         String
+  otpHash       String?
+  attemptNo     Int           @default(0)
+  status        String
+  metaJson      String?
+  createdAt     DateTime      @default(now())
+}
+
+model ContractSignature {
+  id             String       @id @default(cuid())
+  contractCaseId  String       @unique
+  contractCase    ContractCase @relation(fields: [contractCaseId], references: [id], onDelete: Cascade)
+  signaturePath  String
+  signatureSha256 String
+  signedAt       DateTime     @default(now())
+  signerName     String
+  signerIdentity String
+  signerPhone    String
+  signatureMetaJson String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model ContractPdfArchive {
+  id             String       @id @default(cuid())
+  contractCaseId  String       @unique
+  contractCase    ContractCase @relation(fields: [contractCaseId], references: [id], onDelete: Cascade)
+  pdfPath        String
+  pdfHash        String
+  generatedAt    DateTime     @default(now())
+  snapshotJson   String
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  contractCaseId  String?
+  contractCase    ContractCase? @relation(fields: [contractCaseId], references: [id], onDelete: SetNull)
+  action         String
+  actorType      String
+  actorId        String?
+  ipAddress      String?
+  userAgent      String?
+  metaJson       String?
+  createdAt      DateTime     @default(now())
+
+  @@index([action])
+  @@index([contractCaseId])
+}

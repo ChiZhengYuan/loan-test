@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: loan-test
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: APP_URL
+        value: https://loan-test.onrender.com
+      - key: DATABASE_URL
+        value: file:/var/data/dev.db
+      - key: APP_SESSION_SECRET
+        generateValue: true
+      - key: STORAGE_DIR
+        value: /var/data/storage
+      - key: OTP_MOCK_ENABLED
+        value: "true"
+      - key: OTP_DEFAULT_CODE
+        value: "123456"
+    disks:
+      - name: loan-test-data
+        mountPath: /var/data
+        sizeGB: 1

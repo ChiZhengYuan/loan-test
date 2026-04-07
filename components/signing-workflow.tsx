@@ -1,0 +1,569 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Checkbox } from "./ui/checkbox";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { SignatureCanvas } from "./signature-canvas";
+import { cn, formatCurrency, maskId, maskPhone } from "@/lib/utils";
+import { buildLegalDocumentText } from "@/lib/contract";
+
+const steps = ["車主資料", "閱讀條款", "同意確認", "定位佐證", "OTP", "親簽", "完成"];
+const consentItems = [
+  ["full_read", "我已完整閱讀並同意本車主委託放租契約全部條款"],
+  ["electronic_signature", "我同意以電子方式簽署本委託書"],
+  ["privacy_notice", "我已閱讀並同意個人資料蒐集告知事項"],
+  ["evidence_recording", "我同意系統記錄簽署驗證資料、簽名與操作歷程作為契約證明"],
+  ["self_signature", "我確認本人親自簽署"]
+] as const;
+
+function formatTaiwanDateTime(value: string | number | Date) {
+  const date = new Date(value);
+  const parts = new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  }).formatToParts(date);
+  const lookup = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${lookup("year")}/${lookup("month")}/${lookup("day")} ${lookup("dayPeriod")}${lookup("hour")}:${lookup("minute")}:${lookup("second")}`;
+}
+type Props = {
+  token: string;
+  initial: any;
+};
+
+export function SigningWorkflow({ token, initial }: Props) {
+  const router = useRouter();
+  const [activeStep, setActiveStep] = useState(0);
+  const [profile, setProfile] = useState({
+    fullName: initial.contract.lender?.name ?? initial.contract.lenderNameHint ?? "",
+    identityNumber: "",
+    birthDate: "",
+    phone: initial.contract.lender?.phone ?? initial.contract.borrowerPhone ?? "",
+    address: "",
+    licenseNumber: ""
+  });
+  const [idFront, setIdFront] = useState<File | null>(null);
+  const [licenseFront, setLicenseFront] = useState<File | null>(null);
+  const [consents, setConsents] = useState({
+    full_read: false,
+    electronic_signature: false,
+    privacy_notice: false,
+    evidence_recording: false,
+    self_signature: false
+  });
+  const [gpsState, setGpsState] = useState<any>(null);
+  const [otp, setOtp] = useState("");
+  const [otpInfo, setOtpInfo] = useState<{ sentAt?: string; verified?: boolean; count?: number; mockCode?: string } | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [completed, setCompleted] = useState<any>(null);
+
+  const document = useMemo(() => initial.document ?? buildLegalDocumentText(initial.snapshot, initial.contract.contractNo), [initial]);
+  const totalSections = document.sections?.length ?? 0;
+  const stepCount = steps.length;
+
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const timer = setInterval(() => setOtpCooldown((value) => Math.max(0, value - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [otpCooldown]);
+
+  async function postJson(url: string, body: unknown) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "REQUEST_FAILED");
+    return data;
+  }
+
+  async function saveProfile() {
+    setLoading(true);
+    setStatusMessage(null);
+    try {
+      await postJson(`/api/sign/${token}/profile`, profile);
+      setStatusMessage("車主資料已保存");
+      setActiveStep(1);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "資料保存失敗");
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function saveConsents() {
+    setLoading(true);
+    setStatusMessage(null);
+    try {
+      await postJson(`/api/sign/${token}/consents`, consents);
+      setStatusMessage("同意內容已確認");
+      setActiveStep(2);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "同意保存失敗");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function captureGps() {
+    setLoading(true);
+    setStatusMessage(null);
+    const send = async (payload: any) => {
+      const result = await postJson(`/api/sign/${token}/gps`, payload);
+      setGpsState(result.gps);
+      setStatusMessage("定位佐證已記錄");
+      setActiveStep(3);
+    };
+    try {
+      if (!navigator.geolocation) {
+        await send({ gpsStatus: "unavailable", errorMessage: "Browser does not support geolocation" });
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            await send({
+              gpsStatus: "granted",
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              capturedAt: new Date().toISOString()
+            });
+            resolve();
+          },
+          async (error) => {
+            await send({
+              gpsStatus: error.code === error.PERMISSION_DENIED ? "denied" : error.code === error.TIMEOUT ? "timeout" : "error",
+              errorMessage: error.message
+            });
+            resolve();
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
+    } catch (error) {
+      await send({ gpsStatus: "error", errorMessage: error instanceof Error ? error.message : "GPS capture failed" });
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function sendOtp() {
+    setLoading(true);
+    setStatusMessage(null);
+    try {
+      const result = await postJson(`/api/sign/${token}/send-otp`, {});
+      setOtpCooldown(result.retryAfterSeconds ?? 60);
+      setOtpInfo({ sentAt: result.otpSentAt, mockCode: result.mockCode });
+      setStatusMessage(result.mockCode ? `OTP 已送出（Mock）：${result.mockCode}` : "OTP 已送出");
+    } catch (error) {
+      setStatusMessage(error instanceof Error && error.message === "OTP_TOO_SOON" ? "OTP 尚在冷卻中，請稍後再試" : error instanceof Error ? error.message : "OTP 發送失敗");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verifyOtp() {
+    setLoading(true);
+    setStatusMessage(null);
+    try {
+      const result = await postJson(`/api/sign/${token}/verify-otp`, { code: otp });
+      setOtpInfo((current) => ({ ...(current ?? {}), verified: result.verified, count: result.attemptCount }));
+      setStatusMessage(result.verified ? "OTP 驗證成功" : "OTP 驗證失敗");
+      if (result.verified) setActiveStep(4);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "OTP 驗證失敗");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveSignature(signatureDataUrl: string | null) {
+    setSignature(signatureDataUrl);
+    if (!signatureDataUrl) return;
+    try {
+      await postJson(`/api/sign/${token}/signature`, {
+        signatureDataUrl,
+        signerName: profile.fullName
+      });
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "親簽保存失敗");
+    }
+  }
+  async function completeSigning() {
+    setLoading(true);
+    setStatusMessage(null);
+    try {
+      const result = await postJson(`/api/sign/${token}/complete`, {
+        signatureDataUrl: signature,
+        signerName: profile.fullName
+      });
+      setCompleted(result);
+      setStatusMessage("簽署完成，PDF 已封存");
+      setActiveStep(6);
+      router.refresh();
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "完成失敗");
+    } finally {
+      setLoading(false);
+      setShowConfirm(false);
+    }
+  }
+  const stepComplete = (index: number) => {
+    if (index === 0) return Boolean(profile.fullName && profile.identityNumber && profile.birthDate && profile.phone && profile.address);
+    if (index === 1) return true;
+    if (index === 2) return Object.values(consents).every(Boolean);
+    if (index === 3) return Boolean(gpsState);
+    if (index === 4) return Boolean(otpInfo?.verified);
+    if (index === 5) return Boolean(signature);
+    return Boolean(completed);
+  };
+  return (
+    <div className="mx-auto min-h-screen max-w-7xl px-4 py-6 lg:px-8">
+      <section className="mb-6 rounded-[28px] border border-border bg-white/90 p-6 shadow-soft">
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <span>Vehicle Rental Commission</span>
+              <span>HTML Signing</span>
+              <span>Evidence-First</span>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm text-muted-foreground">車主委託放租契約</div>
+              <h1 className="text-3xl font-semibold tracking-tight">{initial.contract.contractNo}</h1>
+              <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
+                這是正式 HTML 簽署頁。你會在這裡完成車主資料填寫、契約確認、定位佐證、OTP 驗證與親簽；只有在簽署完成後，系統才會生成最終封存 PDF。
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge>{initial.contract.status}</Badge>
+              <Badge className="bg-slate-100 text-slate-700">連線記錄</Badge>
+              <Badge className="bg-slate-100 text-slate-700">定位佐證</Badge>
+              <Badge className="bg-slate-100 text-slate-700">OTP 驗證</Badge>
+              <Badge className="bg-slate-100 text-slate-700">親簽封存</Badge>
+            </div>
+          </div>
+
+          <div className="grid gap-3 rounded-2xl border border-border bg-slate-50 p-4 text-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-white p-3">
+                <div className="text-xs text-muted-foreground">案件狀態</div>
+                <div className="mt-1 font-medium">{initial.contract.status}</div>
+              </div>
+              <div className="rounded-xl bg-white p-3">
+                <div className="text-xs text-muted-foreground">條款段落</div>
+                <div className="mt-1 font-medium">{totalSections}</div>
+              </div>
+              <div className="rounded-xl bg-white p-3">
+                <div className="text-xs text-muted-foreground">委託期間</div>
+                <div className="mt-1 text-xs leading-5">
+                  {formatTaiwanDateTime(initial.contract.schedule.borrowStartAt)}
+                  <br />
+                  至 {formatTaiwanDateTime(initial.contract.schedule.borrowEndAt)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-white p-3">
+                <div className="text-xs text-muted-foreground">保證金</div>
+                <div className="mt-1 font-medium">NT$ {formatCurrency(initial.contract.financial.depositAmount)}</div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-6 text-amber-900">
+              請先完整閱讀條款，再完成電子同意、OTP 與親簽。任何缺漏都會被記錄為證據流程的一部分。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="mb-6 grid gap-4 md:grid-cols-4">
+        {steps.map((label, index) => (
+          <div key={label} className={cn("rounded-2xl border p-4 transition-colors", index <= activeStep ? "border-primary bg-primary/5" : "border-border bg-white") }>
+            <div className="text-xs text-muted-foreground">Step {index + 1}</div>
+            <div className="mt-1 font-medium">{label}</div>
+            <div className="mt-2 text-xs text-muted-foreground">{stepComplete(index) ? "已完成或可進行" : "待處理"}</div>
+          </div>
+        ))}
+      </div>
+
+      {statusMessage ? (
+        <div className="mb-4 rounded-2xl border border-border bg-white px-4 py-3 text-sm shadow-sm">{statusMessage}</div>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 1 車主資料</CardTitle>
+              <CardDescription>請填寫甲方車主資料，後續將作為 PDF 封存的一部分。</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              {[
+                ["fullName", "姓名"],
+                ["identityNumber", "身分證字號"],
+                ["birthDate", "出生日期"],
+                ["phone", "手機"],
+
+              ].map(([key, label]) => (
+                <div className="space-y-2" key={key}>
+                  <Label>{label}</Label>
+                  <Input
+                    type={key === "birthDate" ? "date" : "text"}
+                    value={(profile as any)[key]}
+                    onChange={(e) => setProfile((current) => ({ ...current, [key]: e.target.value }))}
+                    placeholder={label as string}
+                  />
+                </div>
+              ))}
+              <div className="space-y-2 md:col-span-2">
+                <Label>地址</Label>
+                <Textarea value={profile.address} onChange={(e) => setProfile((current) => ({ ...current, address: e.target.value }))} />
+              </div>
+              <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+                <Button type="button" onClick={saveProfile} disabled={loading}>儲存車主資料</Button>
+                <span className="text-xs text-muted-foreground">資料會封存到案件資料夾。</span>
+              </div>
+            </CardContent>
+          </Card>
+
+                    <Card>
+            <CardHeader>
+              <CardTitle>Step 2 契約確認</CardTitle>
+              <CardDescription>本流程不需上傳證件，請直接閱讀完整契約。</CardDescription>
+            </CardHeader>
+            <CardContent className="rounded-xl border border-border bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
+              此流程為車主委託放租，僅需確認契約內容、同意事項與驗證流程。
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 2 車主委託放租契約</CardTitle>
+              <CardDescription>請完整閱讀全文後再勾選同意項目。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="rounded-2xl border border-border bg-slate-50 p-5 text-sm leading-7">
+                <div className="mb-5 flex items-start justify-between gap-4 border-b border-border pb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">車主委託放租契約</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">以下為簽署當下的正式全文，請逐段閱讀。</p>
+                  </div>
+                  <div className="rounded-xl bg-white px-3 py-2 text-xs text-muted-foreground">文件段落 {totalSections} 段</div>
+                </div>
+                <div className="space-y-5">
+                  {document.sections.map((section: any, index: number) => (
+                    <section key={section.title} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+                      <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
+                        <h4 className="font-semibold">{section.title}</h4>
+                        <span className="text-xs text-muted-foreground">第 {index + 1} 段</span>
+                      </div>
+                      <div className="space-y-3 text-slate-700">
+                        {section.paragraphs.map((paragraph: string, paraIndex: number) => (
+                          <p key={paraIndex}>{paragraph}</p>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-border bg-white p-3 text-sm">
+                  <div className="text-xs text-muted-foreground">車牌</div>
+                  <div className="mt-1 font-medium">{initial.contract.vehicle.plate}</div>
+                </div>
+                <div className="rounded-xl border border-border bg-white p-3 text-sm">
+                  <div className="text-xs text-muted-foreground">車型</div>
+                  <div className="mt-1 font-medium">{initial.contract.vehicle.model}</div>
+                </div>
+                <div className="rounded-xl border border-border bg-white p-3 text-sm">
+                  <div className="text-xs text-muted-foreground">委託期間</div>
+                  <div className="mt-1 text-sm">
+                    {formatTaiwanDateTime(initial.contract.schedule.borrowStartAt)} - {formatTaiwanDateTime(initial.contract.schedule.borrowEndAt)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border bg-white p-3 text-sm">
+                  <div className="text-xs text-muted-foreground">保證金</div>
+                  <div className="mt-1 font-medium">NT$ {formatCurrency(initial.contract.financial.depositAmount)}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 3 同意勾選</CardTitle>
+              <CardDescription>每一項都必須獨立勾選，系統會將其作為證據紀錄。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {consentItems.map(([key, label]) => (
+                <label key={key} className="flex items-start gap-3 rounded-xl border border-border p-3">
+                  <Checkbox checked={(consents as any)[key]} onChange={(e) => setConsents((current) => ({ ...current, [key]: e.target.checked }))} />
+                  <span>{label}</span>
+                </label>
+              ))}
+              <Button type="button" onClick={saveConsents} disabled={loading}>儲存同意內容</Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 4 定位佐證</CardTitle>
+              <CardDescription>定位為簽署輔助證明資料，若拒絕也會記錄狀態，不影響流程。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p className="rounded-xl border border-border bg-slate-50 p-3">系統將記錄簽署 IP 作為簽署證明。</p>
+              <Button type="button" onClick={captureGps} disabled={loading}>取得 GPS</Button>
+              {gpsState ? (
+                <div className="rounded-xl border border-border bg-slate-50 p-3 text-xs">
+                  <div>定位狀態：{gpsState.gpsStatus}</div>
+                  <div>緯度：{gpsState.latitude ?? "-"}</div>
+                  <div>經度：{gpsState.longitude ?? "-"}</div>
+                  <div>精度：{gpsState.accuracy ?? "-"}</div>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 5 OTP 驗證</CardTitle>
+              <CardDescription>完成 OTP 驗證後，才可進入親簽。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex flex-wrap gap-3">
+                <Button type="button" onClick={sendOtp} disabled={loading || otpCooldown > 0}>{otpCooldown > 0 ? `重新發送 ${otpCooldown}s` : "發送 OTP"}</Button>
+                <Input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} maxLength={6} placeholder="輸入 6 碼 OTP" className="max-w-xs" />
+                <Button type="button" onClick={verifyOtp} disabled={loading || otp.length !== 6}>驗證 OTP</Button>
+              </div>
+              {otpInfo?.mockCode ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">Mock OTP：{otpInfo.mockCode}</div> : null}
+              <div className="text-xs text-muted-foreground">已送出時間：{otpInfo?.sentAt ? formatTaiwanDateTime(otpInfo.sentAt) : "尚未送出"}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 6 親簽</CardTitle>
+              <CardDescription>請於簽名板完成親簽，完成後可進行最終封存。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <SignatureCanvas onChange={saveSignature} />
+              <div className="rounded-xl border border-border bg-slate-50 px-3 py-2 text-xs leading-6 text-slate-700">
+                簽署完成後將產生正式 PDF 合約。送出前請再次確認上方條款、OTP 與證件資料。
+              </div>
+              <Button type="button" onClick={() => setShowConfirm(true)} disabled={!signature || loading || !otpInfo?.verified}>送出並完成簽署</Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6 xl:sticky xl:top-6 self-start">
+          <Card>
+            <CardHeader>
+              <CardTitle>案件資訊</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="rounded-xl border border-border bg-slate-50 p-3">
+                <div className="text-xs text-muted-foreground">契約編號</div>
+                <div className="mt-1 font-medium">{initial.contract.contractNo}</div>
+              </div>
+              <div className="rounded-xl border border-border bg-slate-50 p-3">
+                <div className="text-xs text-muted-foreground">甲方</div>
+                <div className="mt-1">{initial.contract.lender?.name ?? initial.contract.lenderNameHint ?? "-"}</div>
+              </div>
+              <div className="rounded-xl border border-border bg-slate-50 p-3">
+                <div className="text-xs text-muted-foreground">甲方身分證</div>
+                <div className="mt-1">{initial.contract.lender?.id ? maskId(initial.contract.lender.id) : "-"}</div>
+              </div>
+              <div className="rounded-xl border border-border bg-slate-50 p-3">
+                <div className="text-xs text-muted-foreground">甲方電話</div>
+                <div className="mt-1">{maskPhone(initial.contract.lender?.phone ?? "")}</div>
+              </div>
+              <div className="rounded-xl border border-border bg-slate-50 p-3">
+                <div className="text-xs text-muted-foreground">借用人手機</div>
+                <div className="mt-1">{maskPhone(initial.contract.borrowerPhone)}</div>
+              </div>
+              <div className="rounded-xl border border-border bg-slate-50 p-3">
+                <div className="text-xs text-muted-foreground">車輛</div>
+                <div className="mt-1">{initial.contract.vehicle.plate} / {initial.contract.vehicle.model} / {initial.contract.vehicle.color} / {initial.contract.vehicle.year}</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>簽署進度</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p>基本資料：{profile.fullName && profile.identityNumber && profile.birthDate && profile.phone && profile.address && profile.licenseNumber ? "已完成" : "未完成"}</p>
+              <p>契約確認：已完成</p>
+              <p>同意內容：{initial.progress.consentsComplete ? "已完成" : "未完成"}</p>
+              <p>OTP：{initial.progress.otpVerified ? "已驗證" : "未驗證"}</p>
+              <p>親簽：{initial.progress.signatureCaptured ? "已封存" : "未封存"}</p>
+              <p>定位：{initial.contract.gpsStatus ?? "-"}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>完成後狀態</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {completed ? (
+                <>
+                  <p>簽署時間：{formatTaiwanDateTime(new Date())}</p>
+                  <p>PDF：已生成</p>
+                  <p>封存狀態：不可覆蓋</p>
+                  <a className="inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={completed.downloadUrl ?? `/api/contracts/by-token/${token}/pdf`}>下載 PDF</a>
+                </>
+              ) : (
+                <p className="text-muted-foreground">完成簽署後，這裡會顯示下載連結與封存資訊。</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {showConfirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-soft">
+            <h3 className="text-lg font-semibold">最終確認</h3>
+            <p className="mt-2 text-sm text-muted-foreground">簽署完成後將立即封存條款、簽名圖、連線資訊、定位資訊、一次性驗證資料與時間，並生成不可覆蓋的 PDF。</p>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setShowConfirm(false)}>返回確認</Button>
+              <Button type="button" onClick={completeSigning} disabled={loading}>確認完成</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
