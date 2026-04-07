@@ -16,7 +16,9 @@ const envSchema = z.object({
   ADMIN_SEED_PASSWORD: z.preprocess(emptyToUndefined, z.string().min(8).optional()),
   OTP_MOCK_ENABLED: z.preprocess(emptyToUndefined, z.string().default("true")),
   OTP_DEFAULT_CODE: z.preprocess(emptyToUndefined, z.string().min(6).max(6).default("123456")),
-  STORAGE_DIR: z.preprocess(emptyToUndefined, z.string().default("./storage"))
+  STORAGE_DIR: z.preprocess(emptyToUndefined, z.string().default("./storage")),
+  TELEGRAM_BOT_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
+  TELEGRAM_CHAT_ID: z.preprocess(emptyToUndefined, z.string().optional())
 });
 
 export const env = envSchema.parse({
@@ -27,5 +29,7 @@ export const env = envSchema.parse({
   ADMIN_SEED_PASSWORD: process.env.ADMIN_SEED_PASSWORD,
   OTP_MOCK_ENABLED: process.env.OTP_MOCK_ENABLED,
   OTP_DEFAULT_CODE: process.env.OTP_DEFAULT_CODE,
-  STORAGE_DIR: process.env.STORAGE_DIR
+  STORAGE_DIR: process.env.STORAGE_DIR,
+  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+  TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID
 });

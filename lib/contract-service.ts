@@ -19,6 +19,7 @@ import { writeAuditLog } from "./audit";
 import { buildLegalDocumentText } from "./contract";
 import { ContractSnapshot, SignGpsPayload, SignProfile } from "./types";
 import { generateContractPdf } from "./pdf";
+import { sendTelegramPdf } from "./telegram";
 
 function toNumber(value: unknown) {
   return typeof value === "number" ? value : Number(value);
@@ -603,6 +604,36 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
     userAgent: requestInfo?.userAgent ?? null,
     meta: { pdfPath, pdfHash }
   });
+
+  try {
+    await sendTelegramPdf({
+      pdfPath,
+      fileName: `contract-${contract.contractNo}.pdf`,
+      caption: `契約 ${contract.contractNo} 已簽署完成，PDF 已封存。`
+    });
+    await writeAuditLog({
+      contractCaseId: contract.id,
+      action: "send_pdf_telegram",
+      actorType: "system",
+      ipAddress: requestInfo?.ip ?? contract.ipAddress ?? null,
+      userAgent: requestInfo?.userAgent ?? contract.userAgent ?? null,
+      meta: { pdfPath, pdfHash }
+    });
+  } catch (telegramError) {
+    console.error("[telegram] failed to send pdf", telegramError);
+    await writeAuditLog({
+      contractCaseId: contract.id,
+      action: "send_pdf_telegram_failed",
+      actorType: "system",
+      ipAddress: requestInfo?.ip ?? contract.ipAddress ?? null,
+      userAgent: requestInfo?.userAgent ?? contract.userAgent ?? null,
+      meta: {
+        pdfPath,
+        pdfHash,
+        error: telegramError instanceof Error ? telegramError.message : "UNKNOWN"
+      }
+    });
+  }
 
   await writeAuditLog({
     contractCaseId: contract.id,

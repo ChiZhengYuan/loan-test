@@ -91,7 +91,6 @@ export function SigningWorkflow({ token, initial }: Props) {
   const [signatureFullscreenOpen, setSignatureFullscreenOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
-  const [completed, setCompleted] = useState<any>(null);
 
   const liveSnapshot = useMemo(() => {
     const snapshot = initial.snapshot;
@@ -312,14 +311,13 @@ export function SigningWorkflow({ token, initial }: Props) {
     setCompleteError(null);
     setStatusMessage("正在封存簽署內容，請稍候...");
     try {
-      const result = await postJson(`/api/sign/${token}/complete`, {
+      await postJson(`/api/sign/${token}/complete`, {
         signatureDataUrl: signature,
         signerName: profile.fullName
       });
-      setCompleted(result);
-      setStatusMessage("簽署完成，PDF 已封存");
-      setActiveStep(6);
+      setStatusMessage("簽署完成，正在前往成功頁...");
       setShowConfirm(false);
+      router.push(`/sign/${token}/success`);
       router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : "完成失敗";
@@ -352,58 +350,8 @@ export function SigningWorkflow({ token, initial }: Props) {
     if (index === 3) return Boolean(gpsState);
     if (index === 4) return Boolean(otpInfo?.verified);
     if (index === 5) return Boolean(signature);
-    return Boolean(completed);
+    return false;
   };
-
-  if (completed) {
-    return (
-      <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center">
-          <section className="w-full rounded-[28px] border border-emerald-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
-            <div className="space-y-6">
-              <div className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium tracking-wide text-emerald-700">簽署完成</div>
-              <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">契約已封存</h1>
-                <p className="max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                  您的簽署內容、親簽圖與最終 PDF 已完成封存。此版本為正式合約版本，可直接下載留存。
-                </p>
-              </div>
-
-              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 sm:grid-cols-2">
-                <div>
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">契約編號</div>
-                  <div className="mt-1 font-mono text-sm break-all">{initial.contract.contractNo}</div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">簽署時間</div>
-                  <div className="mt-1 text-sm">{completed?.signedAt ? formatTaiwanDateTime(completed.signedAt) : "-"}</div>
-                </div>
-                <div className="sm:col-span-2">
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">PDF 狀態</div>
-                  <div className="mt-1 text-sm">{completed?.downloadUrl ? "已生成並可下載" : "已封存"}</div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {completed?.downloadUrl ? (
-                  <a href={completed.downloadUrl} className="inline-flex h-11 items-center justify-center rounded-md bg-slate-900 px-5 text-sm font-medium text-white transition-colors hover:bg-slate-800">
-                    下載最終 PDF
-                  </a>
-                ) : null}
-                <a href="/" className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100">
-                  返回首頁
-                </a>
-              </div>
-
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
-                這份 PDF 為簽署當下封存版本，包含正式契約、簽署紀錄摘要與親簽圖，內容不可覆蓋修改。
-              </div>
-            </div>
-          </section>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <>
@@ -769,21 +717,6 @@ export function SigningWorkflow({ token, initial }: Props) {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>完成後狀態</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <p>契約編號：{initial.contract.contractNo}</p>
-                <p>簽署完成時間：{completed?.signedAt ? formatTaiwanDateTime(completed.signedAt) : "尚未完成"}</p>
-                <p>PDF：{completed?.downloadUrl ? "已生成" : "尚未生成"}</p>
-                {completed?.downloadUrl ? (
-                  <a href={completed.downloadUrl} className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
-                    下載 PDF
-                  </a>
-                ) : null}
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
