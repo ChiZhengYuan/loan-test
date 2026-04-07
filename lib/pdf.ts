@@ -193,7 +193,6 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   drawBullet("乙方（受託人）", `${snapshot.borrowerHint.name ?? contract.borrowerSnapshot?.fullName ?? "待定"}（${snapshot.borrowerHint.phone}）`);
   drawBullet("車輛", `${snapshot.vehicle.plate} / ${snapshot.vehicle.model} / ${snapshot.vehicle.color} / ${snapshot.vehicle.year}`);
   drawBullet("委託期間", `${format(new Date(snapshot.schedule.borrowStartAt), "yyyy/MM/dd HH:mm", { locale: zhTW })} 至 ${format(new Date(snapshot.schedule.borrowEndAt), "yyyy/MM/dd HH:mm", { locale: zhTW })}`);
-  drawBullet("保證金", `新臺幣 ${snapshot.finance.depositAmount} 元`);
   drawBullet("每日逾期違約金", `新臺幣 ${snapshot.finance.overduePenaltyPerDay} 元`);
   if (snapshot.terms.specialTerms) drawBullet("特殊約定", snapshot.terms.specialTerms);
   drawBullet("管轄法院", snapshot.terms.courtJurisdiction);

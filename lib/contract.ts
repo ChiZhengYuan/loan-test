@@ -148,7 +148,7 @@ export function buildContractSections(snapshot: ContractSnapshot) {
       paragraphs: [
         `本件契約以車牌 ${snapshot.vehicle.plate}、車型 ${snapshot.vehicle.model}、顏色 ${snapshot.vehicle.color}、出廠年份 ${snapshot.vehicle.year} 為標的。`,
         `委託期間為 ${scheduleText}。`,
-        `保證金為新臺幣 ${snapshot.finance.depositAmount} 元，每日逾期違約金為新臺幣 ${snapshot.finance.overduePenaltyPerDay} 元。`,
+        `每日逾期違約金為新臺幣 ${snapshot.finance.overduePenaltyPerDay} 元。`,
         `管轄法院約定為 ${snapshot.terms.courtJurisdiction}。`,
         snapshot.terms.specialTerms ? `特殊約定：${snapshot.terms.specialTerms}` : "本案件未另行記載特殊約定。"
       ]
@@ -171,11 +171,10 @@ export function buildContractSections(snapshot: ContractSnapshot) {
       ]
     },
     {
-      title: "委託期間與費用",
+      title: "委託期間與違約金",
       paragraphs: [
         `起始時間：${format(new Date(snapshot.schedule.borrowStartAt), "yyyy/MM/dd HH:mm", { locale: zhTW })}`,
         `結束時間：${format(new Date(snapshot.schedule.borrowEndAt), "yyyy/MM/dd HH:mm", { locale: zhTW })}`,
-        `保證金：新臺幣 ${snapshot.finance.depositAmount} 元`,
         `每日逾期違約金：新臺幣 ${snapshot.finance.overduePenaltyPerDay} 元`
       ]
     }

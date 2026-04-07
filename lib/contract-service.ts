@@ -8,6 +8,7 @@ import { randomOtp, randomToken, sha256 } from "./crypto";
 import { ensureContractDirs, ensureStorage, pdfRoot, safeFileName } from "./storage";
 import {
   borrowerProfileSchema,
+  signProfileSchema,
   completeSchema,
   consentSchema,
   contractCreateSchema,
@@ -194,52 +195,80 @@ export async function getContractByToken(token: string) {
 }
 
 export async function updateBorrowerProfile(token: string, input: unknown, requestInfo?: { ip?: string | null; userAgent?: string | null }) {
-  const profile = borrowerProfileSchema.parse(input);
+  const profile = signProfileSchema.parse(input);
   const contract = await prisma.contractCase.findUnique({ where: { signToken: token } });
-  if (!contract) throw new Error("CASE_NOT_FOUND");
-  if (contract.status !== "PENDING_SIGN") throw new Error("CASE_NOT_SIGNABLE");
-  const profileJson = JSON.stringify(profile);
-  const updated = await prisma.borrowerSnapshot.upsert({
-    where: { contractCaseId: contract.id },
-    update: {
-      fullName: profile.fullName,
-      identityNumber: profile.identityNumber,
-      birthDate: new Date(profile.birthDate),
-      phone: profile.phone,
-      address: profile.address,
-      licenseNumber: profile.licenseNumber,
-      profileJson
-    },
-    create: {
-      contractCaseId: contract.id,
-      fullName: profile.fullName,
-      identityNumber: profile.identityNumber,
-      birthDate: new Date(profile.birthDate),
-      phone: profile.phone,
-      address: profile.address,
-      licenseNumber: profile.licenseNumber,
-      profileJson
-    }
-  });
+  if (!contract) throw new Error('CASE_NOT_FOUND');
+  if (contract.status !== 'PENDING_SIGN') throw new Error('CASE_NOT_SIGNABLE');
 
-  await prisma.contractCase.update({
-    where: { id: contract.id },
-    data: {
-      borrowerNameHint: profile.fullName,
-      borrowerSnapshotJson: JSON.stringify({ name: profile.fullName, phone: profile.phone })
-    }
+  const borrowerSnapshot = {
+    fullName: profile.fullName,
+    identityNumber: profile.identityNumber,
+    birthDate: new Date(profile.birthDate),
+    phone: profile.phone,
+    address: profile.address,
+    licenseNumber: profile.licenseNumber,
+    profileJson: JSON.stringify(profile)
+  };
+  const vehicleSnapshot = {
+    plate: profile.vehiclePlate,
+    model: profile.vehicleModel,
+    color: profile.vehicleColor,
+    year: profile.vehicleYear
+  };
+  const borrowStartAt = new Date(profile.borrowStartAt);
+  const borrowEndAt = new Date(profile.borrowEndAt);
+
+  const updatedBorrower = await prisma.$transaction(async (tx) => {
+    const updatedContract = await tx.contractCase.update({
+      where: { id: contract.id },
+      data: {
+        borrowerNameHint: profile.fullName,
+        borrowerPhone: profile.phone,
+        borrowerSnapshotJson: JSON.stringify({ name: profile.fullName, phone: profile.phone }),
+        vehiclePlate: profile.vehiclePlate,
+        vehicleModel: profile.vehicleModel,
+        vehicleColor: profile.vehicleColor,
+        vehicleYear: profile.vehicleYear,
+        borrowStartAt,
+        borrowEndAt,
+        vehicleSnapshotJson: JSON.stringify(vehicleSnapshot)
+      }
+    });
+
+    const refreshedSnapshot = toContractSnapshot(updatedContract as any);
+    const refreshedDocument = buildLegalDocumentText(refreshedSnapshot, updatedContract.contractNo);
+    await tx.contractCase.update({
+      where: { id: contract.id },
+      data: {
+        clauseSnapshotJson: JSON.stringify(refreshedDocument)
+      }
+    });
+
+    return tx.borrowerSnapshot.upsert({
+      where: { contractCaseId: contract.id },
+      update: borrowerSnapshot,
+      create: {
+        contractCaseId: contract.id,
+        ...borrowerSnapshot
+      }
+    });
   });
 
   await writeAuditLog({
     contractCaseId: contract.id,
-    action: "submit_profile",
-    actorType: "borrower",
+    action: 'submit_profile',
+    actorType: 'borrower',
     ipAddress: requestInfo?.ip ?? null,
     userAgent: requestInfo?.userAgent ?? null,
-    meta: { fullName: profile.fullName }
+    meta: {
+      fullName: profile.fullName,
+      vehiclePlate: profile.vehiclePlate,
+      borrowStartAt: profile.borrowStartAt,
+      borrowEndAt: profile.borrowEndAt
+    }
   });
 
-  return updated;
+  return updatedBorrower;
 }
 
 export async function saveBorrowerDocuments(

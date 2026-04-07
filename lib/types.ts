@@ -39,6 +39,12 @@ export type SignProfile = {
   phone: string;
   address: string;
   licenseNumber: string;
+  vehiclePlate: string;
+  vehicleModel: string;
+  vehicleColor: string;
+  vehicleYear: number;
+  borrowStartAt: string;
+  borrowEndAt: string;
 };
 
 export type SignGpsPayload = {

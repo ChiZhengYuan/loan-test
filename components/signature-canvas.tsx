@@ -2,13 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import SignaturePad from "signature_pad";
+import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 
-export function SignatureCanvas({
-  onChange
-}: {
+type Props = {
   onChange?: (value: string | null) => void;
-}) {
+  className?: string;
+  canvasClassName?: string;
+};
+
+export function SignatureCanvas({ onChange, className, canvasClassName }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
   const [empty, setEmpty] = useState(true);
@@ -16,32 +19,51 @@ export function SignatureCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
-    const ctx = canvas.getContext("2d");
-    if (ctx) ctx.scale(ratio, ratio);
     const pad = new SignaturePad(canvas, {
       backgroundColor: "rgb(255,255,255)"
     });
     padRef.current = pad;
+
     const update = () => {
       const dataUrl = pad.isEmpty() ? null : pad.toDataURL("image/png");
       setEmpty(pad.isEmpty());
       onChange?.(dataUrl);
     };
+
+    const resizeCanvas = () => {
+      const previous = pad.isEmpty() ? null : pad.toDataURL("image/png");
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * ratio;
+      canvas.height = rect.height * ratio;
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      pad.clear();
+      if (previous) {
+        pad.fromDataURL(previous);
+        setEmpty(false);
+        onChange?.(previous);
+      } else {
+        setEmpty(true);
+        onChange?.(null);
+      }
+    };
+
+    resizeCanvas();
     pad.addEventListener("endStroke", update);
+    window.addEventListener("resize", resizeCanvas);
+
     return () => {
       pad.removeEventListener("endStroke", update);
+      window.removeEventListener("resize", resizeCanvas);
       pad.off();
     };
   }, [onChange]);
 
   return (
-    <div className="space-y-3">
+    <div className={cn("space-y-3", className)}>
       <div className="rounded-2xl border border-dashed border-border bg-white p-3">
-        <canvas ref={canvasRef} className="h-56 w-full rounded-xl bg-white" />
+        <canvas ref={canvasRef} className={cn("h-64 w-full touch-none rounded-xl bg-white", canvasClassName)} />
       </div>
       <div className="flex items-center gap-3">
         <Button

@@ -34,10 +34,6 @@ export async function GET(_request: NextRequest, { params }: Params) {
         borrowStartAt: contract.borrowStartAt,
         borrowEndAt: contract.borrowEndAt
       },
-      financial: {
-        depositAmount: contract.depositAmount,
-        overduePenaltyPerDay: contract.overduePenaltyPerDay
-      },
       borrowerPhone: contract.borrowerPhone,
       borrowerNameHint: contract.borrowerNameHint,
       signedAt: contract.signedAt,

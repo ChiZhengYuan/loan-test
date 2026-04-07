@@ -29,10 +29,6 @@ export default async function SignPage({ params }: Params) {
       borrowStartAt: contract.borrowStartAt.toISOString(),
       borrowEndAt: contract.borrowEndAt.toISOString()
     },
-    finance: {
-      depositAmount: contract.depositAmount.toString(),
-      overduePenaltyPerDay: contract.overduePenaltyPerDay.toString()
-    },
     terms: {
       specialTerms: document.specialTerms ?? contract.specialTerms,
       courtJurisdiction: document.courtJurisdiction ?? contract.courtJurisdiction
@@ -59,10 +55,6 @@ export default async function SignPage({ params }: Params) {
           schedule: {
             borrowStartAt: contract.borrowStartAt,
             borrowEndAt: contract.borrowEndAt
-          },
-          financial: {
-            depositAmount: contract.depositAmount.toString(),
-            overduePenaltyPerDay: contract.overduePenaltyPerDay.toString()
           },
           borrowerPhone: contract.borrowerPhone,
           borrowerNameHint: contract.borrowerNameHint,

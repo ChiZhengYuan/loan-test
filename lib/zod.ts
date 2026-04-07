@@ -32,6 +32,19 @@ export const borrowerProfileSchema = z.object({
   licenseNumber: z.string().min(4).max(30)
 });
 
+const dateTimeStringSchema = z.string().min(1).refine((value) => !Number.isNaN(new Date(value).getTime()), {
+  message: 'Invalid datetime value'
+});
+
+export const signProfileSchema = borrowerProfileSchema.extend({
+  vehiclePlate: z.string().min(1).max(20),
+  vehicleModel: z.string().min(1).max(100),
+  vehicleColor: z.string().min(1).max(40),
+  vehicleYear: z.coerce.number().int().min(1950).max(new Date().getFullYear() + 1),
+  borrowStartAt: dateTimeStringSchema,
+  borrowEndAt: dateTimeStringSchema
+});
+
 export const gpsSchema = z.object({
   gpsStatus: z.enum(["granted", "denied", "unavailable", "timeout", "error"]),
   latitude: z.number().nullable().optional(),
