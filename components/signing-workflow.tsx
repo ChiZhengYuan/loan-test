@@ -37,6 +37,7 @@ function formatTaiwanDateTime(value: string | number | Date) {
   const lookup = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
   return `${lookup("year")}/${lookup("month")}/${lookup("day")} ${lookup("dayPeriod")}${lookup("hour")}:${lookup("minute")}:${lookup("second")}`;
 }
+
 type Props = {
   token: string;
   initial: any;
@@ -72,7 +73,11 @@ export function SigningWorkflow({ token, initial }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [completed, setCompleted] = useState<any>(null);
 
-  const document = useMemo(() => initial.document ?? buildLegalDocumentText(initial.snapshot, initial.contract.contractNo), [initial]);
+  const document = useMemo(() => {
+    const doc = initial.document;
+    if (doc?.sections?.length) return doc;
+    return buildLegalDocumentText(initial.snapshot, initial.contract.contractNo);
+  }, [initial]);
   const totalSections = document.sections?.length ?? 0;
   const stepCount = steps.length;
 
@@ -518,30 +523,34 @@ export function SigningWorkflow({ token, initial }: Props) {
             <CardHeader>
               <CardTitle>完成後狀態</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {completed ? (
-                <>
-                  <p>簽署時間：{formatTaiwanDateTime(new Date())}</p>
-                  <p>PDF：已生成</p>
-                  <p>封存狀態：不可覆蓋</p>
-                  <a className="inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={completed.downloadUrl ?? `/api/contracts/by-token/${token}/pdf`}>下載 PDF</a>
-                </>
-              ) : (
-                <p className="text-muted-foreground">完成簽署後，這裡會顯示下載連結與封存資訊。</p>
-              )}
+            <CardContent className="space-y-3 text-sm">
+              <p>契約編號：{initial.contract.contractNo}</p>
+              <p>簽署完成時間：{completed?.signedAt ? formatTaiwanDateTime(completed.signedAt) : "尚未完成"}</p>
+              <p>PDF：{completed?.pdfUrl ? "已生成" : "尚未生成"}</p>
+              {completed?.pdfUrl ? (
+                <a href={completed.pdfUrl} className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+                  下載 PDF
+                </a>
+              ) : null}
             </CardContent>
           </Card>
         </div>
       </div>
 
       {showConfirm ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-soft">
-            <h3 className="text-lg font-semibold">最終確認</h3>
-            <p className="mt-2 text-sm text-muted-foreground">簽署完成後將立即封存條款、簽名圖、連線資訊、定位資訊、一次性驗證資料與時間，並生成不可覆蓋的 PDF。</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold">確認完成簽署</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              確認送出後，系統會封存條款、簽名、OTP、定位與 PDF，且不可覆蓋修改。
+            </p>
             <div className="mt-6 flex justify-end gap-3">
-              <Button type="button" variant="outline" onClick={() => setShowConfirm(false)}>返回確認</Button>
-              <Button type="button" onClick={completeSigning} disabled={loading}>確認完成</Button>
+              <Button variant="outline" type="button" onClick={() => setShowConfirm(false)}>
+                取消
+              </Button>
+              <Button type="button" onClick={completeSigning} disabled={loading}>
+                確認送出
+              </Button>
             </div>
           </div>
         </div>
@@ -549,21 +558,3 @@ export function SigningWorkflow({ token, initial }: Props) {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
