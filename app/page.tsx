@@ -36,6 +36,16 @@ export default function HomePage() {
               </a>
             </div>
 
+            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <div className="font-medium text-slate-900">快速測試流程</div>
+              <ol className="list-decimal space-y-1 pl-5 leading-6">
+                <li>點擊「立即前往簽署頁」</li>
+                <li>填寫車主與車輛資料</li>
+                <li>閱讀條款並完成同意、OTP 與親簽</li>
+                <li>完成後下載最終 PDF</li>
+              </ol>
+            </div>
+
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
               如果你剛部署完成卻還看到舊畫面，請先強制重新整理一次。首頁現在不再依賴資料庫查詢，所以應該能穩定回應。
             </div>
