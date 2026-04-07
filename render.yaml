@@ -2,10 +2,10 @@ services:
   - type: web
     name: loan-test
     runtime: node
+    plan: starter
     buildCommand: npm install && npm run build
     startCommand: npm start
-    plan: starter
-    autoDeploy: true
+    autoDeployTrigger: commit
     envVars:
       - key: APP_URL
         value: https://loan-test.onrender.com
