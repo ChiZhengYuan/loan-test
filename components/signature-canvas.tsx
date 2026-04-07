@@ -14,7 +14,12 @@ type Props = {
 export function SignatureCanvas({ onChange, className, canvasClassName }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
+  const onChangeRef = useRef<Props["onChange"]>(onChange);
   const [empty, setEmpty] = useState(true);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -27,7 +32,7 @@ export function SignatureCanvas({ onChange, className, canvasClassName }: Props)
     const update = () => {
       const dataUrl = pad.isEmpty() ? null : pad.toDataURL("image/png");
       setEmpty(pad.isEmpty());
-      onChange?.(dataUrl);
+      onChangeRef.current?.(dataUrl);
     };
 
     const resizeCanvas = () => {
@@ -42,10 +47,10 @@ export function SignatureCanvas({ onChange, className, canvasClassName }: Props)
       if (previous) {
         pad.fromDataURL(previous);
         setEmpty(false);
-        onChange?.(previous);
+        onChangeRef.current?.(previous);
       } else {
         setEmpty(true);
-        onChange?.(null);
+        onChangeRef.current?.(null);
       }
     };
 
@@ -58,7 +63,7 @@ export function SignatureCanvas({ onChange, className, canvasClassName }: Props)
       window.removeEventListener("resize", resizeCanvas);
       pad.off();
     };
-  }, [onChange]);
+  }, []);
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -72,7 +77,7 @@ export function SignatureCanvas({ onChange, className, canvasClassName }: Props)
           onClick={() => {
             padRef.current?.clear();
             setEmpty(true);
-            onChange?.(null);
+            onChangeRef.current?.(null);
           }}
         >
           清除重簽
