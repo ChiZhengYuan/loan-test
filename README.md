@@ -11,7 +11,7 @@
 
 ## Render 部署
 
-這個專案可以直接部署到 Render 的 Node Web Service。
+這個專案可以直接部署到 Render 的 Node Web Service，並搭配 Render Postgres。
 
 建議設定：
 
@@ -21,20 +21,30 @@
 - Root Directory: 留空
 - Branch: 你的 GitHub 主分支
 
+### Database
+
+本專案現在使用 PostgreSQL，不再依賴 SQLite 檔案。
+
+如果你用本 repo 的 `render.yaml`，Render 會自動建立：
+
+- 一個 Web Service
+- 一個 PostgreSQL Database
+- `DATABASE_URL` 會由 `fromDatabase` 自動注入
+
 ### Persistent Disk
 
-因為本專案使用 SQLite 與本地檔案儲存，Render 上一定要掛 persistent disk。
+專案仍需要 persistent disk 來保存上傳檔案與最終 PDF。
 
 建議搭配本 repo 的 `render.yaml`：
 
-- SQLite database: `/var/data/dev.db`
 - 檔案儲存目錄: `/var/data/storage`
 
 ### 環境變數
 
 部署時請確認：
 
-- `DATABASE_URL=file:/var/data/dev.db`
+- `APP_URL=https://你的-render-網址`
+- `DATABASE_URL` 由 Render Postgres 自動注入
 - `STORAGE_DIR=/var/data/storage`
 - `APP_SESSION_SECRET` 由 Render 產生或手動設定
 - `OTP_MOCK_ENABLED=true`
@@ -48,7 +58,7 @@
 - TypeScript
 - Tailwind CSS
 - Prisma
-- SQLite（開發預設）
+- PostgreSQL
 - `pdf-lib` server-side PDF 生成
 - `signature_pad` HTML 親簽
 - `zod` 驗證
@@ -83,12 +93,6 @@ npm install
 
 ```bash
 npx prisma db push
-```
-
-如果你要正式 migration，也可以改成：
-
-```bash
-npx prisma migrate dev
 ```
 
 ## Seed

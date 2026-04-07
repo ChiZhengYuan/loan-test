@@ -10,7 +10,9 @@ services:
       - key: APP_URL
         value: https://loan-test.onrender.com
       - key: DATABASE_URL
-        value: file:/var/data/dev.db
+        fromDatabase:
+          name: loan-test-db
+          property: connectionString
       - key: APP_SESSION_SECRET
         generateValue: true
       - key: STORAGE_DIR
@@ -23,3 +25,9 @@ services:
       - name: loan-test-data
         mountPath: /var/data
         sizeGB: 1
+
+databases:
+  - name: loan-test-db
+    databaseName: loan_test
+    user: loan_test
+    plan: free

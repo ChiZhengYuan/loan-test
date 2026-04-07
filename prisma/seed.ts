@@ -1,5 +1,4 @@
 async function main() {
-  process.env.DATABASE_URL = process.env.DATABASE_URL ?? "file:./dev.db";
   process.env.APP_URL = process.env.APP_URL ?? "http://localhost:3000";
   process.env.APP_SESSION_SECRET = process.env.APP_SESSION_SECRET ?? "change-me-change-me-change-me-1234";
 

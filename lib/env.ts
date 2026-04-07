@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1).default("file:./dev.db"),
+  DATABASE_URL: z.string().min(1).default("postgresql://postgres:postgres@localhost:5432/loan_test?schema=public"),
   APP_URL: z.string().url().optional().default("http://localhost:3000"),
   APP_SESSION_SECRET: z.string().min(32).default("change-me-change-me-change-me-1234"),
   ADMIN_SEED_EMAIL: z.string().email().optional(),
