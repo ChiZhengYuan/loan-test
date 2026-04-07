@@ -259,16 +259,25 @@ export function SigningWorkflow({ token, initial }: Props) {
     }
   }
 
-  async function saveSignature(signatureDataUrl: string | null) {
+  async function saveSignatureDraft(signatureDataUrl: string | null) {
     setSignature(signatureDataUrl);
-    if (!signatureDataUrl) return;
+  }
+
+  async function confirmSignature(signatureDataUrl: string) {
+    setLoading(true);
+    setStatusMessage(null);
     try {
       await postJson(`/api/sign/${token}/signature`, {
         signatureDataUrl,
         signerName: profile.fullName
       });
+      setSignature(signatureDataUrl);
+      setStatusMessage("簽名已確認");
+      setActiveStep(5);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "親簽保存失敗");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -760,15 +769,17 @@ export function SigningWorkflow({ token, initial }: Props) {
               <div className="space-y-1">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Full Screen Signature</p>
                 <h3 className="text-lg font-semibold">請在下方完成親簽</h3>
-                <p className="text-sm leading-6 text-slate-300">手機建議橫向，畫面會自動維持較大的簽名區。</p>
+                <p className="text-sm leading-6 text-slate-300">手機建議橫向，畫面會自動維持較大的簽名區；請先完成簽名，再按確認簽名。</p>
               </div>
               <Button type="button" variant="outline" onClick={() => setSignatureFullscreenOpen(false)}>關閉簽名板</Button>
             </div>
             <div className="flex-1 rounded-3xl bg-white p-3 shadow-2xl">
               <SignatureCanvas
-                onChange={saveSignature}
+                onChange={saveSignatureDraft}
+                onConfirm={confirmSignature}
                 className="h-full"
                 canvasClassName="h-[calc(100dvh-250px)] min-h-[360px] md:h-[calc(100dvh-220px)]"
+                confirmLabel="確認全螢幕簽名"
               />
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-200">

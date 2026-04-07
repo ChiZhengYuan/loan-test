@@ -7,15 +7,18 @@ import { Button } from "./ui/button";
 
 type Props = {
   onChange?: (value: string | null) => void;
+  onConfirm?: (value: string) => void;
   className?: string;
   canvasClassName?: string;
+  confirmLabel?: string;
 };
 
-export function SignatureCanvas({ onChange, className, canvasClassName }: Props) {
+export function SignatureCanvas({ onChange, onConfirm, className, canvasClassName, confirmLabel = "確認簽名" }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
   const onChangeRef = useRef<Props["onChange"]>(onChange);
   const [empty, setEmpty] = useState(true);
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -30,9 +33,10 @@ export function SignatureCanvas({ onChange, className, canvasClassName }: Props)
     padRef.current = pad;
 
     const update = () => {
-      const dataUrl = pad.isEmpty() ? null : pad.toDataURL("image/png");
+      const nextDataUrl = pad.isEmpty() ? null : pad.toDataURL("image/png");
       setEmpty(pad.isEmpty());
-      onChangeRef.current?.(dataUrl);
+      setDataUrl(nextDataUrl);
+      onChangeRef.current?.(nextDataUrl);
     };
 
     const resizeCanvas = () => {
@@ -47,9 +51,11 @@ export function SignatureCanvas({ onChange, className, canvasClassName }: Props)
       if (previous) {
         pad.fromDataURL(previous);
         setEmpty(false);
+        setDataUrl(previous);
         onChangeRef.current?.(previous);
       } else {
         setEmpty(true);
+        setDataUrl(null);
         onChangeRef.current?.(null);
       }
     };
@@ -77,12 +83,22 @@ export function SignatureCanvas({ onChange, className, canvasClassName }: Props)
           onClick={() => {
             padRef.current?.clear();
             setEmpty(true);
+            setDataUrl(null);
             onChangeRef.current?.(null);
           }}
         >
-          清除重簽
+          清除簽名
         </Button>
-        <span className="text-sm text-muted-foreground">{empty ? "請在簽名板上親簽。" : "已完成簽名，可送出。"}</span>
+        <Button
+          type="button"
+          onClick={() => {
+            if (dataUrl) onConfirm?.(dataUrl);
+          }}
+          disabled={empty || !dataUrl}
+        >
+          {confirmLabel}
+        </Button>
+        <span className="text-sm text-muted-foreground">{empty ? "請在簽名板上親簽。" : "已完成簽名，可按確認簽名。"}</span>
       </div>
     </div>
   );
