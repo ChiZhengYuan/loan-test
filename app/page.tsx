@@ -2,6 +2,9 @@ import { prisma } from "@/lib/db";
 import { createContractCase } from "@/lib/contract-service";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 async function ensureDemoContract() {
   const pending = await prisma.contractCase.findFirst({
     where: { status: "PENDING_SIGN" },
