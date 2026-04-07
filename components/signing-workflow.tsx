@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "./ui/badge";
@@ -375,10 +376,13 @@ export function SigningWorkflow({ token, initial }: Props) {
         <section className="mb-6 rounded-[24px] border border-border bg-white/90 p-4 shadow-soft sm:p-6">
           <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground sm:text-xs">
-                <span>Vehicle Rental Commission</span>
-                <span>HTML Signing</span>
-                <span>Evidence-First</span>
+              <div className="flex items-center gap-3">
+                <Image src="/logo-transparent.png" alt="將誠租車 Logo" width={60} height={60} className="h-14 w-14 rounded-2xl object-cover shadow-sm" priority />
+                <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground sm:text-xs">
+                  <span>Vehicle Rental Commission</span>
+                  <span>HTML Signing</span>
+                  <span>Evidence-First</span>
+                </div>
               </div>
               <div className="space-y-2">
                 <div className="text-sm text-muted-foreground">車主委託放租契約</div>

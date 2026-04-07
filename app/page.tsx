@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { DEMO_SIGN_TOKEN } from "@/lib/demo";
 
 export default function HomePage() {
@@ -8,7 +9,10 @@ export default function HomePage() {
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center">
         <section className="w-full rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
           <div className="space-y-4">
-            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium tracking-wide text-slate-700">系統已啟動</span>
+            <div className="flex items-center gap-3">
+              <Image src="/logo-transparent.png" alt="將誠租車 Logo" width={56} height={56} className="h-14 w-14 rounded-xl object-cover shadow-sm" priority />
+              <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium tracking-wide text-slate-700">系統已啟動</span>
+            </div>
             <div className="space-y-2">
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">車主委託放租簽署系統</h1>
               <p className="max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">

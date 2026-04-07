@@ -238,6 +238,22 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   drawWrappedParagraph("乙方親簽已由 HTML 簽署頁完成，並於完成後由 server 端生成最終 PDF 封存版本。");
   drawWrappedParagraph("本檔案所載條款、簽署紀錄與快照內容均為簽署當下封存資料，不得以後續編修覆蓋原始紀錄。");
 
+  const logoPath = path.join(process.cwd(), 'public', 'logo-transparent.png');
+  try {
+    const logoBytes = await fs.readFile(logoPath);
+    const logoImage = await pdf.embedPng(logoBytes);
+    const logoWidth = 128;
+    const logoHeight = (logoImage.height / logoImage.width) * logoWidth;
+    page.drawImage(logoImage, {
+      x: pageWidth / 2 - logoWidth / 2,
+      y: pageHeight - margin - 8 - logoHeight,
+      width: logoWidth,
+      height: logoHeight
+    });
+  } catch {
+    // logo is optional; continue without it if unavailable
+  }
+
   const pages = pdf.getPages();
   pages.forEach((currentPage, index) => drawFooter(currentPage, index + 1, pages.length, contract.contractNo, regular));
 

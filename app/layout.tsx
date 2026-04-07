@@ -9,7 +9,11 @@ const noto = Noto_Sans_TC({
 
 export const metadata: Metadata = {
   title: "借用車輛委託書電子簽署系統",
-  description: "借用車輛委託書 HTML 電子簽署與 PDF 封存系統"
+  description: "借用車輛委託書 HTML 電子簽署與 PDF 封存系統",
+  icons: {
+    icon: ["/favicon.ico", "/favicon.png"],
+    apple: "/apple-icon.png"
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
