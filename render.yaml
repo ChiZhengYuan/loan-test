@@ -16,7 +16,7 @@ services:
       - key: APP_SESSION_SECRET
         generateValue: true
       - key: STORAGE_DIR
-        value: /var/data/storage
+        value: /tmp/loan-test-storage
       - key: OTP_MOCK_ENABLED
         value: "true"
       - key: OTP_DEFAULT_CODE

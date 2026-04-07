@@ -31,13 +31,13 @@
 - 一個 PostgreSQL Database
 - `DATABASE_URL` 會由 `fromDatabase` 自動注入
 
-### Persistent Disk
+### 檔案儲存
 
-專案仍需要 persistent disk 來保存上傳檔案與最終 PDF。
+free Blueprint 版本會使用 Render 容器內的暫存目錄保存上傳檔案與最終 PDF：
 
-建議搭配本 repo 的 `render.yaml`：
+- 檔案儲存目錄: `/tmp/loan-test-storage`
 
-- 檔案儲存目錄: `/var/data/storage`
+如果你升級成付費 Web Service，再把這個目錄改成 persistent disk 掛載點即可。
 
 ### 環境變數
 
@@ -45,7 +45,7 @@
 
 - `APP_URL=https://你的-render-網址`
 - `DATABASE_URL` 由 Render Postgres 自動注入
-- `STORAGE_DIR=/var/data/storage`
+- `STORAGE_DIR=/tmp/loan-test-storage`
 - `APP_SESSION_SECRET` 由 Render 產生或手動設定
 - `OTP_MOCK_ENABLED=true`
 - `OTP_DEFAULT_CODE=123456`
