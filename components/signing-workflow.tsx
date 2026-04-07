@@ -274,6 +274,8 @@ export function SigningWorkflow({ token, initial }: Props) {
       setSignature(signatureDataUrl);
       setStatusMessage("簽名已確認");
       setActiveStep(5);
+      setSignatureFullscreenOpen(false);
+      router.refresh();
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "親簽保存失敗");
     } finally {

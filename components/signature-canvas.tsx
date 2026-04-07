@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 
 type Props = {
   onChange?: (value: string | null) => void;
-  onConfirm?: (value: string) => void;
+  onConfirm?: (value: string) => void | Promise<void>;
   className?: string;
   canvasClassName?: string;
   confirmLabel?: string;
@@ -19,6 +19,7 @@ export function SignatureCanvas({ onChange, onConfirm, className, canvasClassNam
   const onChangeRef = useRef<Props["onChange"]>(onChange);
   const [empty, setEmpty] = useState(true);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -91,14 +92,20 @@ export function SignatureCanvas({ onChange, onConfirm, className, canvasClassNam
         </Button>
         <Button
           type="button"
-          onClick={() => {
-            if (dataUrl) onConfirm?.(dataUrl);
+          onClick={async () => {
+            if (!dataUrl || confirming) return;
+            try {
+              setConfirming(true);
+              await Promise.resolve(onConfirm?.(dataUrl));
+            } finally {
+              setConfirming(false);
+            }
           }}
-          disabled={empty || !dataUrl}
+          disabled={empty || !dataUrl || confirming}
         >
-          {confirmLabel}
+          {confirming ? "處理中..." : confirmLabel}
         </Button>
-        <span className="text-sm text-muted-foreground">{empty ? "請在簽名板上親簽。" : "已完成簽名，可按確認簽名。"}</span>
+        <span className="text-sm text-muted-foreground">{confirming ? "簽名確認中，請稍候..." : empty ? "請在簽名板上親簽。" : "已完成簽名，可按確認簽名。"}</span>
       </div>
     </div>
   );
