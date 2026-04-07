@@ -21,10 +21,6 @@ services:
         value: "true"
       - key: OTP_DEFAULT_CODE
         value: "123456"
-    disks:
-      - name: loan-test-data
-        mountPath: /var/data
-        sizeGB: 1
 
 databases:
   - name: loan-test-db
