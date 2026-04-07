@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveConsents } from "@/lib/contract-service";
 import { getRequestIp, getRequestUserAgent } from "@/lib/request";
+import { formatApiError } from "@/lib/api-errors";
 
 type Params = { params: Promise<{ token: string }> };
 

@@ -152,10 +152,34 @@ export function SigningWorkflow({ token, initial }: Props) {
     return data;
   }
 
+  function validateProfileDraft() {
+    const requiredFields: Array<[string, string]> = [
+      [profile.fullName, '姓名'],
+      [profile.identityNumber, '身分證字號'],
+      [profile.birthDate, '出生日期'],
+      [profile.phone, '手機號碼'],
+      [profile.address, '地址'],
+      [profile.licenseNumber, '駕照號碼'],
+      [profile.vehiclePlate, '車牌'],
+      [profile.vehicleModel, '車型'],
+      [profile.vehicleColor, '顏色'],
+      [profile.vehicleYear, '出廠年份'],
+      [profile.borrowStartAt, '委託起始時間'],
+      [profile.borrowEndAt, '委託結束時間']
+    ];
+    const missing = requiredFields.filter(([value]) => !String(value ?? '').trim()).map(([, label]) => label);
+    return missing.length ? `請先補齊：${missing.join('、')}` : null;
+  }
+
   async function saveProfile() {
     setLoading(true);
     setStatusMessage(null);
     try {
+      const draftError = validateProfileDraft();
+      if (draftError) {
+        setStatusMessage(draftError);
+        return;
+      }
       await postJson(`/api/sign/${token}/profile`, {
         ...profile,
         vehicleYear: Number(profile.vehicleYear),
@@ -550,7 +574,7 @@ export function SigningWorkflow({ token, initial }: Props) {
 
                 <div className="flex flex-wrap items-center gap-3">
                   <Button type="button" onClick={saveProfile} disabled={loading}>
-                    儲存並更新預覽
+                    確認資料並更新預覽
                   </Button>
                   <span className="text-xs text-muted-foreground">資料會封存到案件快照中，並同步更新契約內容。</span>
                 </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { completeContract } from "@/lib/contract-service";
 import { getRequestIp, getRequestUserAgent } from "@/lib/request";
+import { formatApiError } from "@/lib/api-errors";
 
 type Params = { params: Promise<{ token: string }> };
 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       downloadUrl: result.pdfPath ? `/api/contracts/by-token/${token}/pdf` : null
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "COMPLETE_FAILED";
+    const message = formatApiError(error, "COMPLETE_FAILED");
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
 }
