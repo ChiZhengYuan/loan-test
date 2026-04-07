@@ -3,30 +3,71 @@ async function main() {
   process.env.APP_SESSION_SECRET = process.env.APP_SESSION_SECRET ?? "change-me-change-me-change-me-1234";
 
   const { prisma } = await import("../lib/db");
-  const { createContractCase } = await import("../lib/contract-service");
-  const { ensureStorage } = await import("../lib/storage");
-
-  await ensureStorage();
+  const { randomToken } = await import("../lib/crypto");
+  const { format } = await import("date-fns");
 
   const contractCount = await prisma.contractCase.count();
   if (contractCount === 0) {
-    await createContractCase({
-      lenderName: "王大明",
-      lenderId: "A123456789",
-      lenderPhone: "0912345678",
-      vehiclePlate: "ABC-1234",
-      vehicleModel: "Toyota Altis",
-      vehicleColor: "白色",
-      vehicleYear: 2022,
-      borrowStartAt: new Date(Date.now() + 86400000).toISOString(),
-      borrowEndAt: new Date(Date.now() + 86400000 * 3).toISOString(),
-      depositAmount: 10000,
-      overduePenaltyPerDay: 2000,
-      specialTerms: "車輛僅供一般代步使用，不得改裝或轉借。",
-      courtJurisdiction: "臺灣臺北地方法院",
-      borrowerPhone: "0987654321",
-      borrowerNameHint: "陳小美"
+    const today = new Date();
+    const start = new Date(today);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(today);
+    end.setHours(23, 59, 59, 999);
+    const count = await prisma.contractCase.count({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end
+        }
+      }
     });
+
+    const contractNo = `BV${format(today, "yyyyMMdd")}-${String(count + 1).padStart(3, "0")}`;
+    const signToken = randomToken(32);
+    const publicSigningUrl = `${process.env.APP_URL.replace(/\/$/, "")}/sign/${signToken}`;
+
+    const lenderSnapshot = { name: "王大明", id: "A123456789", phone: "0912345678" };
+    const borrowerHint = { name: "陳小美", phone: "0987654321" };
+    const vehicleSnapshot = {
+      plate: "ABC-1234",
+      model: "Toyota Altis",
+      color: "白色",
+      year: 2022
+    };
+    const clauseSnapshot = {
+      title: "車主委託放租契約",
+      specialTerms: "車輛僅供一般代步使用，不得改裝或轉借。",
+      courtJurisdiction: "臺灣臺北地方法院"
+    };
+
+    await prisma.contractCase.create({
+      data: {
+        contractNo,
+        signToken,
+        publicSigningUrl,
+        lenderName: "王大明",
+        lenderId: "A123456789",
+        lenderPhone: "0912345678",
+        borrowerNameHint: "陳小美",
+        borrowerPhone: "0987654321",
+        vehiclePlate: "ABC-1234",
+        vehicleModel: "Toyota Altis",
+        vehicleColor: "白色",
+        vehicleYear: 2022,
+        borrowStartAt: new Date(Date.now() + 86400000),
+        borrowEndAt: new Date(Date.now() + 86400000 * 3),
+        depositAmount: 10000,
+        overduePenaltyPerDay: 2000,
+        specialTerms: "車輛僅供一般代步使用，不得改裝或轉借。",
+        courtJurisdiction: "臺灣臺北地方法院",
+        lenderSnapshotJson: JSON.stringify(lenderSnapshot),
+        borrowerSnapshotJson: JSON.stringify(borrowerHint),
+        vehicleSnapshotJson: JSON.stringify(vehicleSnapshot),
+        clauseSnapshotJson: JSON.stringify(clauseSnapshot)
+      }
+    });
+
+    console.log(`Seeded demo contract: ${contractNo}`);
   }
 }
 
