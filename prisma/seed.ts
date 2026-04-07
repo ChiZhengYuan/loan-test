@@ -26,25 +26,12 @@ async function main() {
     const signToken = randomToken(32);
     const publicSigningUrl = `${process.env.APP_URL.replace(/\/$/, "")}/sign/${signToken}`;
 
-    const lenderSnapshot = { name: "王大明", id: "A123456789", phone: "0912345678" };
-    const borrowerHint = { name: "陳小美", phone: "0987654321" };
-    const vehicleSnapshot = {
-      plate: "ABC-1234",
-      model: "Toyota Altis",
-      color: "白色",
-      year: 2022
-    };
-    const clauseSnapshot = {
-      title: "車主委託放租契約",
-      specialTerms: "車輛僅供一般代步使用，不得改裝或轉借。",
-      courtJurisdiction: "臺灣臺北地方法院"
-    };
-
     await prisma.contractCase.create({
       data: {
         contractNo,
         signToken,
         publicSigningUrl,
+        status: "PENDING_SIGN",
         lenderName: "王大明",
         lenderId: "A123456789",
         lenderPhone: "0912345678",
@@ -60,10 +47,14 @@ async function main() {
         overduePenaltyPerDay: 2000,
         specialTerms: "車輛僅供一般代步使用，不得改裝或轉借。",
         courtJurisdiction: "臺灣臺北地方法院",
-        lenderSnapshotJson: JSON.stringify(lenderSnapshot),
-        borrowerSnapshotJson: JSON.stringify(borrowerHint),
-        vehicleSnapshotJson: JSON.stringify(vehicleSnapshot),
-        clauseSnapshotJson: JSON.stringify(clauseSnapshot)
+        lenderSnapshotJson: JSON.stringify({ name: "王大明", id: "A123456789", phone: "0912345678" }),
+        borrowerSnapshotJson: JSON.stringify({ name: "陳小美", phone: "0987654321" }),
+        vehicleSnapshotJson: JSON.stringify({ plate: "ABC-1234", model: "Toyota Altis", color: "白色", year: 2022 }),
+        clauseSnapshotJson: JSON.stringify({
+          title: "車主委託放租契約",
+          specialTerms: "車輛僅供一般代步使用，不得改裝或轉借。",
+          courtJurisdiction: "臺灣臺北地方法院"
+        })
       }
     });
 
