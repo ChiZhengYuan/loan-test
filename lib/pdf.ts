@@ -130,6 +130,7 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   const pageHeight = 841.89;
   const margin = 42;
   const bodySize = 10.4;
+  const sectionTitleSize = 12.2;
   const lineGap = 15;
   const usableWidth = pageWidth - margin * 2;
   const addPage = () => pdf.addPage([pageWidth, pageHeight]);
@@ -152,6 +153,14 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
     cursorY -= lineGap;
   };
 
+  const drawCenteredLine = (text: string, size = bodySize, color: [number, number, number] = [0.09, 0.11, 0.16]) => {
+    const font = bold;
+    const width = font.widthOfTextAtSize(text, size);
+    const x = Math.max(margin, pageWidth / 2 - width / 2);
+    page.drawText(text, { x, y: cursorY, size, font, color: rgb(color[0], color[1], color[2]) });
+    cursorY -= lineGap;
+  };
+
   const drawWrappedParagraph = (text: string, size = bodySize) => {
     const approxChars = Math.max(30, Math.floor(usableWidth / (size * 0.52)));
     for (const line of wrapText(text, approxChars)) {
@@ -165,22 +174,27 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   const drawBullet = (label: string, value: string) => drawWrappedParagraph(`• ${label}：${value}`);
 
   // Cover page
-  page.drawText("車主委託放租契約", {
-    x: margin,
+  const coverTitle = "車主委託放租契約";
+  const coverTitleSize = 24;
+  const coverTitleWidth = bold.widthOfTextAtSize(coverTitle, coverTitleSize);
+  page.drawText(coverTitle, {
+    x: pageWidth / 2 - coverTitleWidth / 2,
     y: cursorY,
-    size: 22,
+    size: coverTitleSize,
     font: bold,
     color: rgb(0.09, 0.15, 0.3)
   });
-  cursorY -= 28;
-  page.drawText("最終封存版本", {
-    x: margin,
+  cursorY -= 30;
+  const coverSub = "最終封存版本";
+  const coverSubWidth = bold.widthOfTextAtSize(coverSub, 12);
+  page.drawText(coverSub, {
+    x: pageWidth / 2 - coverSubWidth / 2,
     y: cursorY,
     size: 12,
     font: bold,
     color: rgb(0.29, 0.33, 0.4)
   });
-  cursorY -= 26;
+  cursorY -= 28;
 
   drawLine(`契約編號：${contract.contractNo}`, { bold: true });
   drawLine(`狀態：${contract.status}`);
@@ -188,7 +202,7 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   drawLine(`封存日期：${format(new Date(), "yyyy/MM/dd HH:mm:ss", { locale: zhTW })}`);
   cursorY -= 10;
 
-  drawLine("一、契約摘要", { bold: true });
+  drawCenteredLine("一、契約摘要", 13, [0.09, 0.15, 0.3]);
   drawBullet("甲方（委託人）", `${snapshot.lender.name}（${snapshot.lender.id}）`);
   drawBullet("乙方（受託人）", `${snapshot.borrowerHint.name ?? contract.borrowerSnapshot?.fullName ?? "待定"}（${snapshot.borrowerHint.phone}）`);
   drawBullet("車輛", `${snapshot.vehicle.plate} / ${snapshot.vehicle.model} / ${snapshot.vehicle.color} / ${snapshot.vehicle.year}`);
@@ -200,7 +214,7 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   // Contract body pages
   for (const section of document.sections ?? []) {
     ensureSpace(lineGap * 4);
-    drawLine(section.title, { bold: true });
+    drawCenteredLine(section.title, sectionTitleSize, [0.09, 0.15, 0.3]);
     for (const paragraph of section.paragraphs) {
       drawWrappedParagraph(paragraph);
     }
@@ -209,7 +223,7 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
 
   // 證據摘要頁
   ensureSpace(180);
-  drawLine("二、簽署紀錄摘要頁", { bold: true });
+  drawCenteredLine("二、簽署紀錄摘要頁", 13, [0.09, 0.15, 0.3]);
   drawBullet("簽署環境來源", contract.ipAddress ?? "未記錄");
   drawBullet("裝置資訊", contract.userAgent ?? "未記錄");
   drawBullet("定位狀態", contract.gpsStatus ?? "未記錄");
@@ -226,7 +240,7 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   const signatureBytes = await fs.readFile(signaturePngPath);
   const signatureImage = await pdf.embedPng(signatureBytes);
   ensureSpace(180);
-  drawLine("三、親簽圖檔", { bold: true });
+  drawCenteredLine("三、親簽圖檔", 13, [0.09, 0.15, 0.3]);
   page.drawRectangle({ x: margin, y: cursorY - 120, width: 260, height: 118, borderWidth: 0.8, borderColor: rgb(0.83, 0.85, 0.89), color: rgb(1, 1, 1) });
   page.drawImage(signatureImage, {
     x: margin + 10,
