@@ -91,6 +91,10 @@ export function SigningWorkflow({ token, initial }: Props) {
   const [signatureFullscreenOpen, setSignatureFullscreenOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
+  const [profileCommitted, setProfileCommitted] = useState(Boolean(initial.progress.profileComplete));
+  const [consentsCommitted, setConsentsCommitted] = useState(Boolean(initial.progress.consentsComplete));
+  const [gpsCommitted, setGpsCommitted] = useState(Boolean(initial.progress.gpsCaptured));
+  const [signatureCommitted, setSignatureCommitted] = useState(Boolean(initial.progress.signatureCaptured));
 
   const liveSnapshot = useMemo(() => {
     const snapshot = initial.snapshot;
@@ -170,21 +174,36 @@ export function SigningWorkflow({ token, initial }: Props) {
     return missing.length ? `請先補齊：${missing.join('、')}` : null;
   }
 
+  function updateProfileField(key: keyof typeof profile, value: string) {
+    setProfile((current) => ({ ...current, [key]: value }));
+    setProfileCommitted(false);
+  }
+
+  function updateConsentField(key: keyof typeof consents, value: boolean) {
+    setConsents((current) => ({ ...current, [key]: value }));
+    setConsentsCommitted(false);
+  }
+
+  async function persistProfile() {
+    const draftError = validateProfileDraft();
+    if (draftError) {
+      throw new Error(draftError);
+    }
+    const result = await postJson(`/api/sign/${token}/profile`, {
+      ...profile,
+      vehicleYear: Number(profile.vehicleYear),
+      borrowStartAt: toIsoDateTime(profile.borrowStartAt),
+      borrowEndAt: toIsoDateTime(profile.borrowEndAt)
+    });
+    setProfileCommitted(true);
+    return result;
+  }
+
   async function saveProfile() {
     setLoading(true);
     setStatusMessage(null);
     try {
-      const draftError = validateProfileDraft();
-      if (draftError) {
-        setStatusMessage(draftError);
-        return;
-      }
-      await postJson(`/api/sign/${token}/profile`, {
-        ...profile,
-        vehicleYear: Number(profile.vehicleYear),
-        borrowStartAt: toIsoDateTime(profile.borrowStartAt),
-        borrowEndAt: toIsoDateTime(profile.borrowEndAt)
-      });
+      await persistProfile();
       setStatusMessage("車主與車輛資料已保存，條款預覽已同步更新");
       setActiveStep(1);
       router.refresh();
@@ -195,11 +214,17 @@ export function SigningWorkflow({ token, initial }: Props) {
     }
   }
 
+  async function persistConsents() {
+    const result = await postJson(`/api/sign/${token}/consents`, consents);
+    setConsentsCommitted(true);
+    return result;
+  }
+
   async function saveConsents() {
     setLoading(true);
     setStatusMessage(null);
     try {
-      await postJson(`/api/sign/${token}/consents`, consents);
+      await persistConsents();
       setStatusMessage("同意內容已確認");
       setActiveStep(2);
     } catch (error) {
@@ -211,11 +236,12 @@ export function SigningWorkflow({ token, initial }: Props) {
 
   async function captureGps() {
     setLoading(true);
-    setStatusMessage(null);
+    setStatusMessage("正在記錄佐證資料，請稍候...");
     const send = async (payload: any) => {
       const result = await postJson(`/api/sign/${token}/gps`, payload);
       setGpsState(result.gps);
-      setStatusMessage("環境佐證已記錄");
+      setGpsCommitted(true);
+      setStatusMessage("佐證資料已記錄");
       setActiveStep(3);
     };
     try {
@@ -254,14 +280,14 @@ export function SigningWorkflow({ token, initial }: Props) {
 
   async function sendOtp() {
     setLoading(true);
-    setStatusMessage(null);
+    setStatusMessage("正在發送驗證碼，請稍候...");
     try {
       const result = await postJson(`/api/sign/${token}/send-otp`, {});
       setOtpCooldown(result.retryAfterSeconds ?? 60);
       setOtpInfo({ sentAt: result.otpSentAt, mockCode: result.mockCode });
-      setStatusMessage(result.mockCode ? `OTP 已送出（Mock）：${result.mockCode}` : "OTP 已送出");
+      setStatusMessage(result.mockCode ? `驗證碼已送出：${result.mockCode}` : "驗證碼已送出");
     } catch (error) {
-      setStatusMessage(error instanceof Error && error.message === "OTP_TOO_SOON" ? "OTP 尚在冷卻中，請稍後再試" : error instanceof Error ? error.message : "OTP 發送失敗");
+      setStatusMessage(error instanceof Error && error.message === "OTP_TOO_SOON" ? "驗證碼尚在冷卻中，請稍後再試" : error instanceof Error ? error.message : "驗證碼發送失敗");
     } finally {
       setLoading(false);
     }
@@ -269,14 +295,14 @@ export function SigningWorkflow({ token, initial }: Props) {
 
   async function verifyOtp() {
     setLoading(true);
-    setStatusMessage(null);
+    setStatusMessage("正在驗證驗證碼，請稍候...");
     try {
       const result = await postJson(`/api/sign/${token}/verify-otp`, { code: otp });
       setOtpInfo((current) => ({ ...(current ?? {}), verified: result.verified, count: result.attemptCount }));
-      setStatusMessage(result.verified ? "OTP 驗證成功" : "OTP 驗證失敗");
+      setStatusMessage(result.verified ? "驗證碼驗證成功" : "驗證碼驗證失敗");
       if (result.verified) setActiveStep(4);
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "OTP 驗證失敗");
+      setStatusMessage(error instanceof Error ? error.message : "驗證碼驗證失敗");
     } finally {
       setLoading(false);
     }
@@ -288,13 +314,14 @@ export function SigningWorkflow({ token, initial }: Props) {
 
   async function confirmSignature(signatureDataUrl: string) {
     setLoading(true);
-    setStatusMessage(null);
+    setStatusMessage("正在確認簽名，請稍候...");
     try {
       await postJson(`/api/sign/${token}/signature`, {
         signatureDataUrl,
         signerName: profile.fullName
       });
       setSignature(signatureDataUrl);
+      setSignatureCommitted(true);
       setStatusMessage("簽名已確認");
       setActiveStep(5);
       setSignatureFullscreenOpen(false);
@@ -311,6 +338,21 @@ export function SigningWorkflow({ token, initial }: Props) {
     setCompleteError(null);
     setStatusMessage("正在封存簽署內容，請稍候...");
     try {
+      if (!profileCommitted) {
+        await persistProfile();
+      }
+      if (!consentsCommitted) {
+        await persistConsents();
+      }
+      if (!gpsCommitted) {
+        throw new Error("請先記錄佐證資料");
+      }
+      if (!otpInfo?.verified) {
+        throw new Error("請先完成驗證碼驗證");
+      }
+      if (!signatureCommitted || !signature) {
+        throw new Error("請先完成親簽");
+      }
       await postJson(`/api/sign/${token}/complete`, {
         signatureDataUrl: signature,
         signerName: profile.fullName
@@ -329,27 +371,12 @@ export function SigningWorkflow({ token, initial }: Props) {
   }
 
   const stepComplete = (index: number) => {
-    if (index === 0) {
-      return Boolean(
-        profile.fullName &&
-          profile.identityNumber &&
-          profile.birthDate &&
-          profile.phone &&
-          profile.address &&
-          profile.licenseNumber &&
-          profile.vehiclePlate &&
-          profile.vehicleModel &&
-          profile.vehicleColor &&
-          profile.vehicleYear &&
-          profile.borrowStartAt &&
-          profile.borrowEndAt
-      );
-    }
+    if (index === 0) return profileCommitted;
     if (index === 1) return true;
-    if (index === 2) return Object.values(consents).every(Boolean);
-    if (index === 3) return Boolean(gpsState);
+    if (index === 2) return consentsCommitted;
+    if (index === 3) return gpsCommitted;
     if (index === 4) return Boolean(otpInfo?.verified);
-    if (index === 5) return Boolean(signature);
+    if (index === 5) return signatureCommitted;
     return false;
   };
 
@@ -461,7 +488,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                           <Input
                             type={key === "birthDate" ? "date" : "text"}
                             value={(profile as any)[key]}
-                            onChange={(e) => setProfile((current) => ({ ...current, [key]: e.target.value }))}
+                            onChange={(e) => updateProfileField(key as keyof typeof profile, e.target.value)}
                             placeholder={label as string}
                           />
                         </div>
@@ -471,7 +498,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                       <Label>地址</Label>
                       <Textarea
                         value={profile.address}
-                        onChange={(e) => setProfile((current) => ({ ...current, address: e.target.value }))}
+                        onChange={(e) => updateProfileField("address", e.target.value)}
                         className="min-h-[96px]"
                         placeholder="請輸入完整地址"
                       />
@@ -492,7 +519,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                           <Input
                             type={key === "vehicleYear" ? "number" : "text"}
                             value={(profile as any)[key]}
-                            onChange={(e) => setProfile((current) => ({ ...current, [key]: e.target.value }))}
+                            onChange={(e) => updateProfileField(key as keyof typeof profile, e.target.value)}
                             placeholder={label as string}
                           />
                         </div>
@@ -590,7 +617,7 @@ export function SigningWorkflow({ token, initial }: Props) {
               <CardContent className="space-y-3 text-sm">
                 {consentItems.map(([key, label]) => (
                   <label key={key} className="flex items-start gap-3 rounded-xl border border-border p-3">
-                    <Checkbox checked={(consents as any)[key]} onChange={(e) => setConsents((current) => ({ ...current, [key]: e.target.checked }))} />
+                    <Checkbox checked={(consents as any)[key]} onChange={(e) => updateConsentField(key, e.target.checked)} />
                     <span>{label}</span>
                   </label>
                 ))}
@@ -605,7 +632,7 @@ export function SigningWorkflow({ token, initial }: Props) {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <p className="rounded-xl border border-border bg-slate-50 p-3">系統將記錄簽署環境資訊作為簽署證明。</p>
-                <Button type="button" onClick={captureGps} disabled={loading}>記錄佐證</Button>
+                <Button type="button" onClick={captureGps} disabled={loading}>{loading ? "記錄中..." : "記錄佐證資料"}</Button>
                 {gpsState ? (
                   <div className="rounded-xl border border-border bg-slate-50 p-3 text-xs">
                     <div>佐證狀態：{gpsState.gpsStatus}</div>
@@ -625,12 +652,12 @@ export function SigningWorkflow({ token, initial }: Props) {
               <CardContent className="space-y-3 text-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <Button type="button" onClick={sendOtp} disabled={loading || otpCooldown > 0}>
-                    {otpCooldown > 0 ? `重新發送 ${otpCooldown}s` : "發送 OTP"}
+                    {otpCooldown > 0 ? `重新發送 ${otpCooldown}s` : "發送驗證碼"}
                   </Button>
                   <Input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} maxLength={6} placeholder="輸入 6 碼 OTP" className="max-w-xs" />
-                  <Button type="button" onClick={verifyOtp} disabled={loading || otp.length !== 6}>驗證 OTP</Button>
+                  <Button type="button" onClick={verifyOtp} disabled={loading || otp.length !== 6}>{loading ? "驗證中..." : "驗證驗證碼"}</Button>
                 </div>
-                {otpInfo?.mockCode ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">Mock OTP：{otpInfo.mockCode}</div> : null}
+                {otpInfo?.mockCode ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">驗證碼：{otpInfo.mockCode}</div> : null}
                 <div className="text-xs text-muted-foreground">已送出時間：{otpInfo?.sentAt ? formatTaiwanDateTime(otpInfo.sentAt) : "尚未送出"}</div>
               </CardContent>
             </Card>
