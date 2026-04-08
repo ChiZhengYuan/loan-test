@@ -18,8 +18,15 @@ const envSchema = z.object({
   OTP_DEFAULT_CODE: z.preprocess(emptyToUndefined, z.string().min(6).max(6).default("123456")),
   STORAGE_DIR: z.preprocess(emptyToUndefined, z.string().default("./storage")),
   TELEGRAM_BOT_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
-  TELEGRAM_CHAT_ID: z.preprocess(emptyToUndefined, z.string().optional())
+  TELEGRAM_CHAT_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+  TG_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
+  TG_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+  TELEGRAM_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
+  TELEGRAM_ID: z.preprocess(emptyToUndefined, z.string().optional())
 });
+
+const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN ?? process.env.TG_TOKEN ?? process.env.TELEGRAM_TOKEN;
+const telegramChatId = process.env.TELEGRAM_CHAT_ID ?? process.env.TG_ID ?? process.env.TELEGRAM_ID;
 
 export const env = envSchema.parse({
   DATABASE_URL: process.env.DATABASE_URL,
@@ -30,6 +37,10 @@ export const env = envSchema.parse({
   OTP_MOCK_ENABLED: process.env.OTP_MOCK_ENABLED,
   OTP_DEFAULT_CODE: process.env.OTP_DEFAULT_CODE,
   STORAGE_DIR: process.env.STORAGE_DIR,
-  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
-  TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID
+  TELEGRAM_BOT_TOKEN: telegramBotToken,
+  TELEGRAM_CHAT_ID: telegramChatId,
+  TG_TOKEN: process.env.TG_TOKEN,
+  TG_ID: process.env.TG_ID,
+  TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN,
+  TELEGRAM_ID: process.env.TELEGRAM_ID
 });

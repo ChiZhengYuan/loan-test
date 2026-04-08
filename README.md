@@ -154,9 +154,12 @@ PDF 不會在建立案件時產生。
 
 ## Telegram PDF 傳送
 - 設定 `TELEGRAM_BOT_TOKEN` 與 `TELEGRAM_CHAT_ID` 後，完成簽署時系統會自動把最終 PDF 傳送到指定 Telegram。
-
+- 也可使用 `TG_TOKEN` / `TG_ID` 或 `TELEGRAM_TOKEN` / `TELEGRAM_ID`，程式會自動兼容。
 
 ## Telegram 傳送 PDF 用
-- `TELEGRAM_BOT_TOKEN`：Telegram Bot Token
-- `TELEGRAM_CHAT_ID`：接收 PDF 的聊天 ID
+- `TELEGRAM_BOT_TOKEN`：Telegram Bot Token（也可用 `TG_TOKEN` 或 `TELEGRAM_TOKEN`）
+- `TELEGRAM_CHAT_ID`：接收 PDF 的聊天 ID（也可用 `TG_ID` 或 `TELEGRAM_ID`）
 - 完成簽署後，系統會自動嘗試把最終 PDF 傳送到 Telegram。
+
+
+

@@ -13,6 +13,7 @@ import { Textarea } from "./ui/textarea";
 import { SignatureCanvas } from "./signature-canvas";
 import { cn, maskId, maskPhone } from "@/lib/utils";
 import { buildLegalDocumentText } from "@/lib/contract";
+import { formatApiError } from "@/lib/api-errors";
 
 const steps = ["車主資料", "閱讀條款", "同意確認", "環境佐證", "驗證碼", "親簽", "完成"];
 const consentItems = [
@@ -151,7 +152,7 @@ export function SigningWorkflow({ token, initial }: Props) {
       body: JSON.stringify(body)
     });
     const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error(data.error || "REQUEST_FAILED");
+    if (!response.ok || !data.ok) throw new Error(formatApiError(data.error || "REQUEST_FAILED"));
     return data;
   }
 
@@ -657,7 +658,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                     {otpCooldown > 0 ? `重新發送 ${otpCooldown}s` : "發送驗證碼"}
                   </Button>
                   <Input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} maxLength={6} placeholder="輸入 6 碼 OTP" className="max-w-xs" />
-                  <Button type="button" onClick={verifyOtp} disabled={loading || otp.length !== 6}>{otpInfo?.verified ? "驗證碼已完成" : loading ? "驗證中..." : "驗證驗證碼"}</Button>
+                  <Button type="button" onClick={verifyOtp} disabled={loading || otp.length !== 6}>{otpInfo?.verified ? "驗證碼已完成" : loading ? "驗證中..." : "驗證"}</Button>
                 </div>
                 {otpInfo?.mockCode ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">驗證碼：{otpInfo.mockCode}</div> : null}
                 <div className="text-xs text-muted-foreground">已送出時間：{otpInfo?.sentAt ? formatTaiwanDateTime(otpInfo.sentAt) : "尚未送出"}</div>
@@ -807,3 +808,6 @@ export function SigningWorkflow({ token, initial }: Props) {
     </>
   );
 }
+
+
+
