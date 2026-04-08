@@ -773,7 +773,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                 onChange={saveSignatureDraft}
                 onConfirm={confirmSignature}
                 className="h-full"
-                canvasClassName="h-[calc(100dvh-330px)] min-h-[260px] md:h-[calc(100dvh-280px)]"
+                canvasClassName="h-[calc(100dvh-400px)] min-h-[220px] md:h-[calc(100dvh-340px)]"
                 confirmLabel="確認全螢幕簽名"
               />
             </div>
@@ -808,6 +808,7 @@ export function SigningWorkflow({ token, initial }: Props) {
     </>
   );
 }
+
 
 
 

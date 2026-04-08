@@ -82,7 +82,7 @@ export function SignatureCanvas({ onChange, onConfirm, className, canvasClassNam
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant="outline"
+              className="border border-slate-300 bg-slate-200 text-slate-900 hover:bg-slate-300"
               onClick={() => {
                 padRef.current?.clear();
                 setEmpty(true);
