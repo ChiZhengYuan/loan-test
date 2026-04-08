@@ -20,6 +20,8 @@ const fieldLabels: Record<string, string> = {
 
 const appErrors: Record<string, string> = {
   CASE_NOT_FOUND: "找不到案件。",
+  INVALID_CREDENTIALS: "帳號或密碼錯誤。",
+  UNAUTHORIZED: "尚未登入或權限不足。",
   CASE_NOT_SIGNABLE: "此案件目前不可簽署。",
   PROFILE_NOT_COMPLETE: "請先完成基本資料。",
   CONSENTS_NOT_COMPLETE: "請先完成同意勾選。",

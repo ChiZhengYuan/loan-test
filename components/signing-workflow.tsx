@@ -683,6 +683,12 @@ export function SigningWorkflow({ token, initial }: Props) {
                   <div className="mt-4 rounded-2xl border border-dashed border-border bg-white p-4 text-sm text-muted-foreground">
                     {signature ? "已完成簽名，可重新開啟全螢幕簽名板調整或覆寫。" : "尚未簽名，請先開啟全螢幕簽名板。"}
                   </div>
+                  {signature ? (
+                    <div className="mt-4 rounded-2xl border border-border bg-white p-4">
+                      <div className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">簽名預覽</div>
+                      <img src={signature} alt="簽名預覽" className="max-h-40 w-full rounded-xl border border-slate-200 object-contain bg-white" />
+                    </div>
+                  ) : null}
                 </div>
                 <div className="rounded-xl border border-border bg-slate-50 px-3 py-2 text-xs leading-6 text-slate-700">
                   簽署完成後將產生正式 PDF 合約。送出前請再次確認上方條款、OTP 與車主資料。

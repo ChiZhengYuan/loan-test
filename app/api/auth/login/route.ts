@@ -3,18 +3,19 @@ import { prisma } from "@/lib/db";
 import { createAdminSession, verifyAdminPassword } from "@/lib/auth";
 import { loginSchema } from "@/lib/zod";
 import { writeAuditLog } from "@/lib/audit";
+import { formatApiError } from "@/lib/api-errors";
 import { getRequestIp, getRequestUserAgent } from "@/lib/request";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json({ ok: false, error: formatApiError(parsed.error, "登入資料有誤。") }, { status: 400 });
   }
 
   const admin = await prisma.adminUser.findUnique({ where: { email: parsed.data.email } });
   if (!admin) {
-    return NextResponse.json({ ok: false, error: "INVALID_CREDENTIALS" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: formatApiError("INVALID_CREDENTIALS", "登入失敗。") }, { status: 401 });
   }
 
   const valid = await verifyAdminPassword(parsed.data.password, admin.passwordHash);
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
       ipAddress: getRequestIp(request),
       userAgent: getRequestUserAgent(request)
     });
-    return NextResponse.json({ ok: false, error: "INVALID_CREDENTIALS" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: formatApiError("INVALID_CREDENTIALS", "登入失敗。") }, { status: 401 });
   }
 
   const token = await createAdminSession(admin.id, admin.email);
