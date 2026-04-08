@@ -329,7 +329,6 @@ export function SigningWorkflow({ token, initial }: Props) {
       setActiveStep(5);
       router.refresh();
     } catch (error) {
-      setSignatureFullscreenOpen(true);
       setStatusMessage(error instanceof Error ? error.message : "親簽保存失敗");
     } finally {
       setLoading(false);
