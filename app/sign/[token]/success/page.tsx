@@ -21,14 +21,12 @@ function formatTaiwanDateTime(value: string | number | Date) {
 
 type Params = { params: Promise<{ token: string }>; searchParams?: Promise<{ telegram?: string }> };
 
-export default async function SignSuccessPage({ params, searchParams }: Params) {
+export default async function SignSuccessPage({ params }: Params) {
   const { token } = await params;
-  const query = searchParams ? await searchParams : {};
   const contract = await getContractByToken(token);
   if (!contract) notFound();
 
   const pdfPath = await ensureFinalPdf(contract);
-  const downloadUrl = `/api/contracts/by-token/${token}/pdf`;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
@@ -42,7 +40,7 @@ export default async function SignSuccessPage({ params, searchParams }: Params) 
             <div className="space-y-2">
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">契約已完成封存</h1>
               <p className="max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                您的簽署已完成，系統已生成正式 PDF 並封存。您可以立即下載保存。
+                您的簽署已完成，系統已生成正式 PDF 並封存。您可以立即返回首頁。
               </p>
             </div>
 
@@ -57,27 +55,18 @@ export default async function SignSuccessPage({ params, searchParams }: Params) 
               </div>
               <div className="sm:col-span-2">
                 <div className="text-xs uppercase tracking-[0.18em] text-slate-500">PDF 狀態</div>
-                <div className="mt-1 text-sm">{pdfPath ? "已生成並可下載" : "處理中"}</div>
+                <div className="mt-1 text-sm">{pdfPath ? "已生成並封存" : "處理中"}</div>
               </div>
             </div>
 
-            <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${query.telegram === "sent" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
-              {query.telegram === "sent"
-                ? "Telegram 已收到最終 PDF。"
-                : "Telegram 尚未收到 PDF，通常代表部署環境尚未設定 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID，或 Telegram 帳號尚未允許機器人傳送。"}
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <a href={downloadUrl} className="inline-flex h-11 items-center justify-center rounded-md bg-slate-900 px-5 text-sm font-medium text-white transition-colors hover:bg-slate-800">
-                下載最終 PDF
-              </a>
-              <Link href="/" className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100">
+            <div className="flex justify-center">
+              <Link href="/" className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-8 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100">
                 返回首頁
               </Link>
             </div>
 
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
-              這份 PDF 為簽署當下封存版本，包含正式契約、簽署紀錄摘要與親簽圖，內容不可覆蓋修改。
+              這份 PDF 為簽署當下封存版本，內容不可覆蓋修改。
             </div>
           </div>
         </section>

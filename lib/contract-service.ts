@@ -541,11 +541,47 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
   if (!contract) throw new Error("CASE_NOT_FOUND");
   requireReadyToComplete(contract as any);
   if (contract.pdfArchive?.pdfPath) {
+    let telegramSent = false;
+    let telegramReason: string | null = null;
+    try {
+      const telegramResult = await sendTelegramPdf({
+        pdfPath: contract.pdfArchive.pdfPath,
+        fileName: `contract-${contract.contractNo}.pdf`,
+        caption: `契約 ${contract.contractNo} 已簽署完成，PDF 已封存。`
+      });
+      telegramSent = Boolean(telegramResult.sent);
+      telegramReason = telegramResult.sent ? null : telegramResult.reason;
+      await writeAuditLog({
+        contractCaseId: contract.id,
+        action: "send_pdf_telegram",
+        actorType: "system",
+        ipAddress: requestInfo?.ip ?? contract.ipAddress ?? null,
+        userAgent: requestInfo?.userAgent ?? contract.userAgent ?? null,
+        meta: { pdfPath: contract.pdfArchive.pdfPath, pdfHash: contract.pdfArchive.pdfHash, telegramSent, telegramReason }
+      });
+    } catch (telegramError) {
+      console.error("[telegram] failed to send pdf", telegramError);
+      telegramReason = telegramError instanceof Error ? telegramError.message : "Telegram 傳送失敗";
+      await writeAuditLog({
+        contractCaseId: contract.id,
+        action: "send_pdf_telegram_failed",
+        actorType: "system",
+        ipAddress: requestInfo?.ip ?? contract.ipAddress ?? null,
+        userAgent: requestInfo?.userAgent ?? contract.userAgent ?? null,
+        meta: {
+          pdfPath: contract.pdfArchive.pdfPath,
+          pdfHash: contract.pdfArchive.pdfHash,
+          error: telegramReason
+        }
+      });
+    }
     return {
       pdfPath: contract.pdfArchive.pdfPath,
       pdfHash: contract.pdfArchive.pdfHash,
       signedAt: contract.signedAt?.toISOString() ?? null,
-      alreadyGenerated: true
+      alreadyGenerated: true,
+      telegramSent,
+      telegramReason
     };
   }
 
@@ -714,4 +750,5 @@ export async function ensureFinalPdf(contract: ContractCase) {
     return null;
   }
 }
+
 
