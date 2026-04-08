@@ -20,6 +20,7 @@ export function SignatureCanvas({ onChange, onConfirm, className, canvasClassNam
   const [empty, setEmpty] = useState(true);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [successHint, setSuccessHint] = useState(false);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -77,7 +78,7 @@ export function SignatureCanvas({ onChange, onConfirm, className, canvasClassNam
       <div className="rounded-2xl border border-dashed border-border bg-white p-3">
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-muted-foreground">
-            {confirming ? "簽名確認中，請稍候..." : empty ? "請在簽名板上親簽。" : "已完成簽名，可按確認簽名。"}
+            {confirming ? "簽名確認中，請稍候..." : empty ? "請在簽名板上親簽。" : successHint ? "簽名已完成，正在返回主畫面。" : "已完成簽名，可按確認簽名。"}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -87,6 +88,7 @@ export function SignatureCanvas({ onChange, onConfirm, className, canvasClassNam
                 padRef.current?.clear();
                 setEmpty(true);
                 setDataUrl(null);
+                setSuccessHint(false);
                 onChangeRef.current?.(null);
               }}
             >
@@ -98,7 +100,10 @@ export function SignatureCanvas({ onChange, onConfirm, className, canvasClassNam
                 if (!dataUrl || confirming) return;
                 try {
                   setConfirming(true);
+                  setSuccessHint(false);
                   await Promise.resolve(onConfirm?.(dataUrl));
+                  setSuccessHint(true);
+                  window.setTimeout(() => setSuccessHint(false), 1800);
                 } finally {
                   setConfirming(false);
                 }
