@@ -317,6 +317,7 @@ export function SigningWorkflow({ token, initial }: Props) {
   async function confirmSignature(signatureDataUrl: string) {
     setLoading(true);
     setStatusMessage("正在確認簽名，請稍候...");
+    setSignatureFullscreenOpen(false);
     try {
       await postJson(`/api/sign/${token}/signature`, {
         signatureDataUrl,
@@ -326,9 +327,9 @@ export function SigningWorkflow({ token, initial }: Props) {
       setSignatureCommitted(true);
       setStatusMessage("簽名已完成");
       setActiveStep(5);
-      setSignatureFullscreenOpen(false);
       router.refresh();
     } catch (error) {
+      setSignatureFullscreenOpen(true);
       setStatusMessage(error instanceof Error ? error.message : "親簽保存失敗");
     } finally {
       setLoading(false);
@@ -808,6 +809,7 @@ export function SigningWorkflow({ token, initial }: Props) {
     </>
   );
 }
+
 
 
 
