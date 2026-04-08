@@ -605,22 +605,28 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
     meta: { pdfPath, pdfHash }
   });
 
+  let telegramSent = false;
+  let telegramReason: string | null = null;
+
   try {
-    await sendTelegramPdf({
+    const telegramResult = await sendTelegramPdf({
       pdfPath,
       fileName: `contract-${contract.contractNo}.pdf`,
       caption: `契約 ${contract.contractNo} 已簽署完成，PDF 已封存。`
     });
+    telegramSent = Boolean(telegramResult.sent);
+    telegramReason = telegramResult.sent ? null : telegramResult.reason;
     await writeAuditLog({
       contractCaseId: contract.id,
       action: "send_pdf_telegram",
       actorType: "system",
       ipAddress: requestInfo?.ip ?? contract.ipAddress ?? null,
       userAgent: requestInfo?.userAgent ?? contract.userAgent ?? null,
-      meta: { pdfPath, pdfHash }
+      meta: { pdfPath, pdfHash, telegramSent, telegramReason }
     });
   } catch (telegramError) {
     console.error("[telegram] failed to send pdf", telegramError);
+    telegramReason = telegramError instanceof Error ? telegramError.message : "Telegram 傳送失敗";
     await writeAuditLog({
       contractCaseId: contract.id,
       action: "send_pdf_telegram_failed",
@@ -630,7 +636,7 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
       meta: {
         pdfPath,
         pdfHash,
-        error: telegramError instanceof Error ? telegramError.message : "UNKNOWN"
+        error: telegramReason
       }
     });
   }
@@ -652,7 +658,9 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
     pdfPath,
     pdfHash,
     signedAt: archivedAt.toISOString(),
-    alreadyGenerated: false
+    alreadyGenerated: false,
+    telegramSent,
+    telegramReason
   };
 }
 

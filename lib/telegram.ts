@@ -8,7 +8,7 @@ export async function sendTelegramPdf(options: {
 }) {
   const token = env.TELEGRAM_BOT_TOKEN;
   const chatId = env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) return { sent: false, reason: "missing_config" as const };
+  if (!token || !chatId) return { sent: false, reason: "尚未設定 Telegram 連線資訊" as const };
 
   const fileBytes = await fs.readFile(options.pdfPath);
   const form = new FormData();
@@ -23,7 +23,7 @@ export async function sendTelegramPdf(options: {
 
   const data = await response.json().catch(() => null);
   if (!response.ok || !data?.ok) {
-    const description = data?.description ?? `Telegram API failed with status ${response.status}`;
+    const description = data?.description ? `Telegram 傳送失敗：${data.description}` : `Telegram 傳送失敗：狀態碼 ${response.status}`;
     throw new Error(description);
   }
 

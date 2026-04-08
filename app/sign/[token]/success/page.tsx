@@ -19,10 +19,11 @@ function formatTaiwanDateTime(value: string | number | Date) {
   return `${lookup("year")}/${lookup("month")}/${lookup("day")} ${lookup("dayPeriod")}${lookup("hour")}:${lookup("minute")}:${lookup("second")}`;
 }
 
-type Params = { params: Promise<{ token: string }> };
+type Params = { params: Promise<{ token: string }>; searchParams?: Promise<{ telegram?: string }> };
 
-export default async function SignSuccessPage({ params }: Params) {
+export default async function SignSuccessPage({ params, searchParams }: Params) {
   const { token } = await params;
+  const query = searchParams ? await searchParams : {};
   const contract = await getContractByToken(token);
   if (!contract) notFound();
 
@@ -41,7 +42,7 @@ export default async function SignSuccessPage({ params }: Params) {
             <div className="space-y-2">
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">契約已完成封存</h1>
               <p className="max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                您的簽署已完成，系統已生成正式 PDF 並封存。您可以立即下載保存，PDF 也已同步傳送至指定 Telegram。
+                您的簽署已完成，系統已生成正式 PDF 並封存。您可以立即下載保存。
               </p>
             </div>
 
@@ -58,6 +59,12 @@ export default async function SignSuccessPage({ params }: Params) {
                 <div className="text-xs uppercase tracking-[0.18em] text-slate-500">PDF 狀態</div>
                 <div className="mt-1 text-sm">{pdfPath ? "已生成並可下載" : "處理中"}</div>
               </div>
+            </div>
+
+            <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${query.telegram === "sent" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+              {query.telegram === "sent"
+                ? "Telegram 已收到最終 PDF。"
+                : "Telegram 尚未收到 PDF，通常代表部署環境尚未設定 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID，或 Telegram 帳號尚未允許機器人傳送。"}
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">

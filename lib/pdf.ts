@@ -113,20 +113,11 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   let regular: any;
   let bold: any;
 
-  if (fontPath) {
-    pdf.registerFontkit(fontkit as any);
-    const fontBytes = await fs.readFile(fontPath);
-    regular = await pdf.embedFont(fontBytes);
-    bold = regular;
-  } else {
-    pdf.registerFontkit(fontkit as any);
-    const fallbackFont = await fs.readFile(path.join(process.cwd(), "assets", "fonts", "NotoSansTC-VF.ttf")).catch(async () => {
-      const fontPathCandidate = "C:\Windows\Fonts\msjh.ttc";
-      return fs.readFile(fontPathCandidate);
-    });
-    regular = await pdf.embedFont(fallbackFont);
-    bold = regular;
-  }
+  pdf.registerFontkit(fontkit as any);
+  const preferredFontPath = fontPath ?? path.join(process.cwd(), "assets", "fonts", "NotoSansTC-VF.ttf");
+  const fontBytes = await fs.readFile(preferredFontPath);
+  regular = await pdf.embedFont(fontBytes);
+  bold = regular;
 
   const frozenDocument = parseFrozenDocument(contract.clauseSnapshotJson);
   const document = frozenDocument ?? { title: "車主委託放租契約", sections: [] };
@@ -166,17 +157,17 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
     cursorY -= lineGap;
   };
 
-  const drawWrappedParagraph = (text: string, size = bodySize) => {
+  const drawWrappedParagraph = (text: string, size = bodySize, extraBottomGap = 6) => {
     const approxChars = Math.max(30, Math.floor(usableWidth / (size * 0.52)));
     for (const line of wrapText(text, approxChars)) {
       ensureSpace();
       page.drawText(line, { x: margin, y: cursorY, size, font: regular, color: rgb(0.09, 0.11, 0.16) });
       cursorY -= lineGap;
     }
-    cursorY -= 4;
+    cursorY -= extraBottomGap;
   };
 
-  const drawBullet = (label: string, value: string) => drawWrappedParagraph(`• ${label}：${value}`);
+  const drawBullet = (label: string, value: string) => drawWrappedParagraph(`• ${label}：${value}`, bodySize, 8);
 
   // Cover page
   const coverTitle = "車主委託放租契約";
@@ -218,12 +209,14 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
 
   // Contract body pages
   for (const section of document.sections ?? []) {
-    ensureSpace(lineGap * 4);
-    drawCenteredLine(section.title, sectionTitleSize, [0.09, 0.15, 0.3]);
-    for (const paragraph of section.paragraphs) {
-      drawWrappedParagraph(paragraph);
-    }
+    ensureSpace(lineGap * 5);
     cursorY -= 4;
+    drawCenteredLine(section.title, sectionTitleSize, [0.09, 0.15, 0.3]);
+    cursorY -= 2;
+    for (const paragraph of section.paragraphs) {
+      drawWrappedParagraph(paragraph, bodySize, 10);
+    }
+    cursorY -= 10;
   }
 
   // 證據摘要頁
@@ -257,21 +250,6 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
   drawWrappedParagraph("乙方親簽已由 HTML 簽署頁完成，並於完成後由 server 端生成最終 PDF 封存版本。");
   drawWrappedParagraph("本檔案所載條款、簽署紀錄與快照內容均為簽署當下封存資料，不得以後續編修覆蓋原始紀錄。");
 
-  const logoPath = path.join(process.cwd(), 'public', 'logo-transparent.png');
-  try {
-    const logoBytes = await fs.readFile(logoPath);
-    const logoImage = await pdf.embedPng(logoBytes);
-    const logoWidth = 128;
-    const logoHeight = (logoImage.height / logoImage.width) * logoWidth;
-    page.drawImage(logoImage, {
-      x: pageWidth / 2 - logoWidth / 2,
-      y: pageHeight - margin - 8 - logoHeight,
-      width: logoWidth,
-      height: logoHeight
-    });
-  } catch {
-    // logo is optional; continue without it if unavailable
-  }
 
   const pages = pdf.getPages();
   pages.forEach((currentPage, index) => drawFooter(currentPage, index + 1, pages.length, contract.contractNo, regular));
