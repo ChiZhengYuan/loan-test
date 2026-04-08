@@ -14,7 +14,7 @@ import { SignatureCanvas } from "./signature-canvas";
 import { cn, maskId, maskPhone } from "@/lib/utils";
 import { buildLegalDocumentText } from "@/lib/contract";
 
-const steps = ["車主資料", "閱讀條款", "同意確認", "環境佐證", "OTP", "親簽", "完成"];
+const steps = ["車主資料", "閱讀條款", "同意確認", "環境佐證", "驗證碼", "親簽", "完成"];
 const consentItems = [
   ["full_read", "我已完整閱讀並同意本車主委託放租契約全部條款"],
   ["electronic_signature", "我同意以電子方式簽署本委託書"],
@@ -204,7 +204,7 @@ export function SigningWorkflow({ token, initial }: Props) {
     setStatusMessage(null);
     try {
       await persistProfile();
-      setStatusMessage("車主與車輛資料已保存，條款預覽已同步更新");
+      setStatusMessage("資料已完成");
       setActiveStep(1);
       router.refresh();
     } catch (error) {
@@ -225,7 +225,7 @@ export function SigningWorkflow({ token, initial }: Props) {
     setStatusMessage(null);
     try {
       await persistConsents();
-      setStatusMessage("同意內容已確認");
+      setStatusMessage("同意內容已完成");
       setActiveStep(2);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "同意保存失敗");
@@ -241,12 +241,12 @@ export function SigningWorkflow({ token, initial }: Props) {
       const result = await postJson(`/api/sign/${token}/gps`, payload);
       setGpsState(result.gps);
       setGpsCommitted(true);
-      setStatusMessage("佐證資料已記錄");
+      setStatusMessage("佐證資料已完成");
       setActiveStep(3);
     };
     try {
       if (!navigator.geolocation) {
-        await send({ gpsStatus: "unavailable", errorMessage: "Browser does not support geolocation" });
+        await send({ gpsStatus: "unavailable", errorMessage: "此裝置或瀏覽器不支援定位功能" });
         return;
       }
       await new Promise<void>((resolve) => {
@@ -272,7 +272,7 @@ export function SigningWorkflow({ token, initial }: Props) {
         );
       });
     } catch (error) {
-      await send({ gpsStatus: "error", errorMessage: error instanceof Error ? error.message : "佐證擷取失敗" });
+      await send({ gpsStatus: "error", errorMessage: error instanceof Error ? error.message : "佐證資料擷取失敗" });
     } finally {
       setLoading(false);
     }
@@ -299,7 +299,7 @@ export function SigningWorkflow({ token, initial }: Props) {
     try {
       const result = await postJson(`/api/sign/${token}/verify-otp`, { code: otp });
       setOtpInfo((current) => ({ ...(current ?? {}), verified: result.verified, count: result.attemptCount }));
-      setStatusMessage(result.verified ? "驗證碼驗證成功" : "驗證碼驗證失敗");
+      setStatusMessage(result.verified ? "驗證碼已完成" : "驗證碼驗證失敗");
       if (result.verified) setActiveStep(4);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "驗證碼驗證失敗");
@@ -310,6 +310,7 @@ export function SigningWorkflow({ token, initial }: Props) {
 
   async function saveSignatureDraft(signatureDataUrl: string | null) {
     setSignature(signatureDataUrl);
+    setSignatureCommitted(false);
   }
 
   async function confirmSignature(signatureDataUrl: string) {
@@ -322,7 +323,7 @@ export function SigningWorkflow({ token, initial }: Props) {
       });
       setSignature(signatureDataUrl);
       setSignatureCommitted(true);
-      setStatusMessage("簽名已確認");
+      setStatusMessage("簽名已完成");
       setActiveStep(5);
       setSignatureFullscreenOpen(false);
       router.refresh();
@@ -357,7 +358,7 @@ export function SigningWorkflow({ token, initial }: Props) {
         signatureDataUrl: signature,
         signerName: profile.fullName
       });
-      setStatusMessage("簽署完成，正在前往成功頁...");
+      setStatusMessage("簽署已完成，正在前往成功頁...");
       setShowConfirm(false);
       router.push(`/sign/${token}/success`);
       router.refresh();
@@ -549,7 +550,7 @@ export function SigningWorkflow({ token, initial }: Props) {
 
                 <div className="flex flex-wrap items-center gap-3">
                   <Button type="button" onClick={saveProfile} disabled={loading}>
-                    確認資料並更新預覽
+                    {profileCommitted ? "資料已完成" : "確認資料並更新預覽"}
                   </Button>
                   <span className="text-xs text-muted-foreground">資料會封存到案件快照中，並同步更新契約內容。</span>
                 </div>
@@ -621,7 +622,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                     <span>{label}</span>
                   </label>
                 ))}
-                <Button type="button" onClick={saveConsents} disabled={loading}>儲存同意內容</Button>
+                <Button type="button" onClick={saveConsents} disabled={loading}>{consentsCommitted ? "同意內容已完成" : "儲存同意內容"}</Button>
               </CardContent>
             </Card>
 
@@ -632,7 +633,7 @@ export function SigningWorkflow({ token, initial }: Props) {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <p className="rounded-xl border border-border bg-slate-50 p-3">系統將記錄簽署環境資訊作為簽署證明。</p>
-                <Button type="button" onClick={captureGps} disabled={loading}>{loading ? "記錄中..." : "記錄佐證資料"}</Button>
+                <Button type="button" onClick={captureGps} disabled={loading}>{loading ? "記錄中..." : gpsCommitted ? "佐證資料已完成" : "記錄佐證資料"}</Button>
                 {gpsState ? (
                   <div className="rounded-xl border border-border bg-slate-50 p-3 text-xs">
                     <div>佐證狀態：{gpsState.gpsStatus}</div>
@@ -646,8 +647,8 @@ export function SigningWorkflow({ token, initial }: Props) {
 
             <Card>
               <CardHeader>
-                <CardTitle>Step 5 OTP 驗證</CardTitle>
-                <CardDescription>完成 OTP 驗證後，才可進入親簽。</CardDescription>
+                <CardTitle>Step 5 驗證碼驗證</CardTitle>
+                <CardDescription>完成驗證碼驗證後，才可進入親簽。</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -655,7 +656,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                     {otpCooldown > 0 ? `重新發送 ${otpCooldown}s` : "發送驗證碼"}
                   </Button>
                   <Input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} maxLength={6} placeholder="輸入 6 碼 OTP" className="max-w-xs" />
-                  <Button type="button" onClick={verifyOtp} disabled={loading || otp.length !== 6}>{loading ? "驗證中..." : "驗證驗證碼"}</Button>
+                  <Button type="button" onClick={verifyOtp} disabled={loading || otp.length !== 6}>{otpInfo?.verified ? "驗證碼已完成" : loading ? "驗證中..." : "驗證驗證碼"}</Button>
                 </div>
                 {otpInfo?.mockCode ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">驗證碼：{otpInfo.mockCode}</div> : null}
                 <div className="text-xs text-muted-foreground">已送出時間：{otpInfo?.sentAt ? formatTaiwanDateTime(otpInfo.sentAt) : "尚未送出"}</div>
@@ -738,7 +739,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                 <p>基本資料：{stepComplete(0) ? "已完成" : "未完成"}</p>
                 <p>契約確認：已完成</p>
                 <p>同意內容：{initial.progress.consentsComplete ? "已完成" : "未完成"}</p>
-                <p>OTP：{initial.progress.otpVerified ? "已驗證" : "未驗證"}</p>
+                <p>驗證碼：{initial.progress.otpVerified ? "已完成" : "未完成"}</p>
                 <p>親簽：{initial.progress.signatureCaptured ? "已封存" : "未封存"}</p>
                 <p>佐證：{initial.contract.gpsStatus ?? "-"}</p>
               </CardContent>

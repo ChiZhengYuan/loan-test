@@ -119,8 +119,13 @@ export async function generateContractPdf({ contract, snapshot, signaturePngPath
     regular = await pdf.embedFont(fontBytes);
     bold = regular;
   } else {
-    regular = await pdf.embedFont(StandardFonts.Helvetica);
-    bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    pdf.registerFontkit(fontkit as any);
+    const fallbackFont = await fs.readFile(path.join(process.cwd(), "assets", "fonts", "NotoSansTC-VF.ttf")).catch(async () => {
+      const fontPathCandidate = "C:\Windows\Fonts\msjh.ttc";
+      return fs.readFile(fontPathCandidate);
+    });
+    regular = await pdf.embedFont(fallbackFont);
+    bold = regular;
   }
 
   const frozenDocument = parseFrozenDocument(contract.clauseSnapshotJson);

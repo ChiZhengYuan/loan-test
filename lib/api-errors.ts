@@ -23,7 +23,7 @@ const appErrors: Record<string, string> = {
   CASE_NOT_SIGNABLE: "此案件目前不可簽署。",
   PROFILE_NOT_COMPLETE: "請先完成基本資料。",
   CONSENTS_NOT_COMPLETE: "請先完成同意勾選。",
-  OTP_NOT_VERIFIED: "請先完成 OTP 驗證。",
+  OTP_NOT_VERIFIED: "請先完成驗證碼驗證。",
   OTP_NOT_SENT: "請先發送驗證碼。",
   OTP_TOO_SOON: "驗證碼尚在冷卻中，請稍後再試。",
   OTP_TOO_MANY_ATTEMPTS: "驗證碼嘗試次數過多，請稍後再試。",
@@ -33,6 +33,7 @@ const appErrors: Record<string, string> = {
   NOT_FOUND: "找不到資料。",
   PROFILE_SAVE_FAILED: "資料保存失敗。",
   SIGNATURE_SAVE_FAILED: "簽名保存失敗。",
+  SIGNATURE_NOT_CAPTURED: "請先完成親簽。",
   COMPLETE_FAILED: "完成簽署失敗。",
   REQUEST_FAILED: "請求失敗，請稍後再試。"
 };
@@ -58,9 +59,9 @@ function translateIssueMessage(issue: ZodError['issues'][number]) {
     case 'invalid_type':
       return `${fieldLabel}格式不正確。`;
     case 'custom':
-      return issue.message || `${fieldLabel}格式不正確。`;
+      return `${fieldLabel}格式不正確。`;
     default:
-      return issue.message || `${fieldLabel}格式不正確。`;
+      return `${fieldLabel}格式不正確。`;
   }
 }
 
@@ -69,10 +70,10 @@ export function formatApiError(error: unknown, fallback = '發生錯誤。') {
     return error.issues.map(translateIssueMessage).join('；');
   }
   if (error instanceof Error) {
-    return appErrors[error.message] ?? error.message ?? fallback;
+    return appErrors[error.message] ?? fallback;
   }
   if (typeof error === 'string') {
-    return appErrors[error] ?? error;
+    return appErrors[error] ?? fallback;
   }
   return fallback;
 }
