@@ -772,6 +772,7 @@ export function SigningWorkflow({ token, initial }: Props) {
             <div className="flex-1 rounded-3xl bg-white p-3 shadow-2xl">
               <SignatureCanvas
                 onChange={saveSignatureDraft}
+                onConfirmStart={() => setSignatureFullscreenOpen(false)}
                 onConfirm={confirmSignature}
                 className="h-full"
                 canvasClassName="h-[calc(100dvh-430px)] min-h-[200px] md:h-[calc(100dvh-360px)]"
@@ -809,6 +810,7 @@ export function SigningWorkflow({ token, initial }: Props) {
     </>
   );
 }
+
 
 
 

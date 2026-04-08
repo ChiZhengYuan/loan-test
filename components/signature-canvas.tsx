@@ -8,12 +8,13 @@ import { Button } from "./ui/button";
 type Props = {
   onChange?: (value: string | null) => void;
   onConfirm?: (value: string) => void | Promise<void>;
+  onConfirmStart?: () => void;
   className?: string;
   canvasClassName?: string;
   confirmLabel?: string;
 };
 
-export function SignatureCanvas({ onChange, onConfirm, className, canvasClassName, confirmLabel = "確認簽名" }: Props) {
+export function SignatureCanvas({ onChange, onConfirm, onConfirmStart, className, canvasClassName, confirmLabel = "確認簽名" }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
   const onChangeRef = useRef<Props["onChange"]>(onChange);
@@ -99,6 +100,7 @@ export function SignatureCanvas({ onChange, onConfirm, className, canvasClassNam
               onClick={async () => {
                 if (!dataUrl || confirming) return;
                 try {
+                  onConfirmStart?.();
                   setConfirming(true);
                   setSuccessHint(false);
                   await Promise.resolve(onConfirm?.(dataUrl));
