@@ -90,6 +90,7 @@ export function SigningWorkflow({ token, initial }: Props) {
   const [loading, setLoading] = useState(false);
   const [otpCooldown, setOtpCooldown] = useState(0);
   const [signatureFullscreenOpen, setSignatureFullscreenOpen] = useState(false);
+  const [signatureFullscreenLocked, setSignatureFullscreenLocked] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [profileCommitted, setProfileCommitted] = useState(Boolean(initial.progress.profileComplete));
@@ -314,10 +315,20 @@ export function SigningWorkflow({ token, initial }: Props) {
     setSignatureCommitted(false);
   }
 
+  function openSignatureFullscreen() {
+    setSignatureFullscreenLocked(false);
+    setSignatureFullscreenOpen(true);
+  }
+
+  function closeSignatureFullscreen() {
+    setSignatureFullscreenLocked(true);
+    setSignatureFullscreenOpen(false);
+  }
+
   async function confirmSignature(signatureDataUrl: string) {
     setLoading(true);
     setStatusMessage("正在確認簽名，請稍候...");
-    setSignatureFullscreenOpen(false);
+    closeSignatureFullscreen();
     try {
       await postJson(`/api/sign/${token}/signature`, {
         signatureDataUrl,
@@ -679,7 +690,7 @@ export function SigningWorkflow({ token, initial }: Props) {
                         手機建議橫向使用，簽名空間會更大。完成後請返回此頁繼續送出。
                       </div>
                     </div>
-                    <Button type="button" onClick={() => setSignatureFullscreenOpen(true)}>開啟全螢幕簽名</Button>
+                    <Button type="button" onClick={openSignatureFullscreen}>開啟全螢幕簽名</Button>
                   </div>
                   <div className="mt-4 rounded-2xl border border-dashed border-border bg-white p-4 text-sm text-muted-foreground">
                     {signature ? "已完成簽名，可重新開啟全螢幕簽名板調整或覆寫。" : "尚未簽名，請先開啟全螢幕簽名板。"}
@@ -757,7 +768,7 @@ export function SigningWorkflow({ token, initial }: Props) {
         </div>
       </div>
 
-      {signatureFullscreenOpen ? (
+      {signatureFullscreenOpen && !signatureFullscreenLocked ? (
         <div className="fixed inset-0 z-[60] bg-slate-950/95 p-4 text-white">
           <div className="mx-auto flex h-full max-w-6xl flex-col gap-4">
             <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-start sm:justify-between">
@@ -766,12 +777,12 @@ export function SigningWorkflow({ token, initial }: Props) {
                 <h3 className="text-lg font-semibold">請在下方完成親簽</h3>
                 <p className="text-sm leading-6 text-slate-300">手機建議橫向，畫面會自動維持較大的簽名區；請先完成簽名，再按確認簽名。</p>
               </div>
-              <Button type="button" variant="outline" onClick={() => setSignatureFullscreenOpen(false)}>關閉簽名板</Button>
+              <Button type="button" variant="outline" onClick={closeSignatureFullscreen}>關閉簽名板</Button>
             </div>
             <div className="flex-1 rounded-3xl bg-white p-3 shadow-2xl">
               <SignatureCanvas
                 onChange={saveSignatureDraft}
-                onConfirmStart={() => setSignatureFullscreenOpen(false)}
+                onConfirmStart={closeSignatureFullscreen}
                 onConfirm={confirmSignature}
                 className="h-full"
                 canvasClassName="h-[calc(100dvh-430px)] min-h-[200px] md:h-[calc(100dvh-360px)]"
