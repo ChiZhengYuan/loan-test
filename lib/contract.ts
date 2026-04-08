@@ -131,7 +131,6 @@ const clauseList: ContractClause[] = [
     paragraphs: [
       "本契約未盡事宜，依中華民國相關法令、交易習慣及誠信原則處理。",
       "本契約以系統封存之最終版本為準；如需修改條款，應重新建立案件並重新完成簽署程序。",
-      "乙方（受託代租方／使用人）：蔡正源，聯絡電話 0963025420。"
     ]
   }
 ];
@@ -159,7 +158,7 @@ export function buildContractSections(snapshot: ContractSnapshot) {
       title: "契約雙方資料",
       paragraphs: [
         `甲方（車輛所有人／委託人）：${snapshot.lender.name}，身分證字號 ${snapshot.lender.id}，聯絡電話 ${snapshot.lender.phone}。`,
-        `乙方（受託代租方／使用人）：${snapshot.borrowerHint.name ?? "待乙方簽署時填寫"}，聯絡電話 ${snapshot.borrowerHint.phone}。`
+        "乙方（受託代租方／使用人）：蔡正源，聯絡電話 0963025420。",
       ]
     },
     {
@@ -192,6 +191,9 @@ export function buildLegalDocumentText(snapshot: ContractSnapshot, contractNo: s
     sections
   };
 }
+
+
+
 
 
 
