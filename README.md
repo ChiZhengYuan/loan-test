@@ -46,7 +46,7 @@ free Blueprint 版本會使用 Render 容器內的暫存目錄保存上傳檔案
 - `APP_URL=https://你的-render-網址`
 - `DATABASE_URL` 由 Render Postgres 自動注入
 - `STORAGE_DIR=/tmp/loan-test-storage`
-- `APP_SESSION_SECRET` 由 Render 產生或手動設定
+- `APP_SESSION_SECRET`：由 Render 產生或手動設定，請至少 32 字元。
 - `OTP_MOCK_ENABLED=true`
 - `OTP_DEFAULT_CODE=123456`
 
@@ -84,7 +84,7 @@ npm install
 
 - `DATABASE_URL`
 - `APP_URL`
-- `APP_SESSION_SECRET`
+- `APP_SESSION_SECRET`（至少 32 字元）
 - `OTP_MOCK_ENABLED`
 - `OTP_DEFAULT_CODE`
 - `STORAGE_DIR`
@@ -161,6 +161,8 @@ PDF 不會在建立案件時產生。
 - `TELEGRAM_CHAT_ID`：接收 PDF 的聊天 ID（也可用 `TG_ID` 或 `TELEGRAM_ID`）
 - 完成簽署後，系統會自動嘗試把最終 PDF 傳送到 Telegram。
 - 測試 Telegram 可用 POST /api/debug/telegram-test，會把最近一筆已封存 PDF 再送一次。
+
+
 
 
 
