@@ -75,38 +75,43 @@ export function SignatureCanvas({ onChange, onConfirm, className, canvasClassNam
   return (
     <div className={cn("space-y-3", className)}>
       <div className="rounded-2xl border border-dashed border-border bg-white p-3">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-muted-foreground">
+            {confirming ? "簽名確認中，請稍候..." : empty ? "請在簽名板上親簽。" : "已完成簽名，可按確認簽名。"}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                padRef.current?.clear();
+                setEmpty(true);
+                setDataUrl(null);
+                onChangeRef.current?.(null);
+              }}
+            >
+              清除簽名
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                if (!dataUrl || confirming) return;
+                try {
+                  setConfirming(true);
+                  await Promise.resolve(onConfirm?.(dataUrl));
+                } finally {
+                  setConfirming(false);
+                }
+              }}
+              disabled={empty || !dataUrl || confirming}
+            >
+              {confirming ? "處理中..." : confirmLabel}
+            </Button>
+          </div>
+        </div>
         <canvas ref={canvasRef} className={cn("h-64 w-full touch-none rounded-xl bg-white", canvasClassName)} />
       </div>
-      <div className="flex items-center gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            padRef.current?.clear();
-            setEmpty(true);
-            setDataUrl(null);
-            onChangeRef.current?.(null);
-          }}
-        >
-          清除簽名
-        </Button>
-        <Button
-          type="button"
-          onClick={async () => {
-            if (!dataUrl || confirming) return;
-            try {
-              setConfirming(true);
-              await Promise.resolve(onConfirm?.(dataUrl));
-            } finally {
-              setConfirming(false);
-            }
-          }}
-          disabled={empty || !dataUrl || confirming}
-        >
-          {confirming ? "處理中..." : confirmLabel}
-        </Button>
-        <span className="text-sm text-muted-foreground">{confirming ? "簽名確認中，請稍候..." : empty ? "請在簽名板上親簽。" : "已完成簽名，可按確認簽名。"}</span>
-      </div>
+      <div className="text-sm text-muted-foreground">按鈕已移到上方，方便手機與電腦都能直接看到。</div>
     </div>
   );
 }
