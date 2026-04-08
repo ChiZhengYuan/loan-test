@@ -160,6 +160,7 @@ PDF 不會在建立案件時產生。
 - `TELEGRAM_BOT_TOKEN`：Telegram Bot Token（也可用 `TG_TOKEN` 或 `TELEGRAM_TOKEN`）
 - `TELEGRAM_CHAT_ID`：接收 PDF 的聊天 ID（也可用 `TG_ID` 或 `TELEGRAM_ID`）
 - 完成簽署後，系統會自動嘗試把最終 PDF 傳送到 Telegram。
+- 測試 Telegram 可用 POST /api/debug/telegram-test，會把最近一筆已封存 PDF 再送一次。
 
 
 
