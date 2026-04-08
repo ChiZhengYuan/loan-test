@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendTelegramPdf } from "@/lib/telegram";
-import { formatApiError } from "@/lib/api-errors";
 
 export async function POST(_request: NextRequest) {
   try {
@@ -30,8 +29,9 @@ export async function POST(_request: NextRequest) {
       contractNo: latestArchive.contractCase.contractNo
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Telegram 測試傳送失敗。";
     return NextResponse.json(
-      { ok: false, error: formatApiError(error, "Telegram 測試傳送失敗。") },
+      { ok: false, error: message, detail: message },
       { status: 400 }
     );
   }
