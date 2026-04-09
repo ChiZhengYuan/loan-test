@@ -334,7 +334,6 @@ export function SigningWorkflow({ token, initial }: Props) {
     setSignatureCommitted(true);
     setStatusMessage("簽名已完成");
     setActiveStep(5);
-    router.refresh();
     return result;
   }
 
