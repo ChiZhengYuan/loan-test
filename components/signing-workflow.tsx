@@ -339,7 +339,7 @@ export function SigningWorkflow({ token, initial }: Props) {
 
   async function confirmSignature(signatureDataUrl: string) {
     setLoading(true);
-    setStatusMessage("正在確認簽名，請稍候...");
+    setStatusMessage("處理中，請稍候...");
     closeSignatureFullscreen();
     try {
       await persistSignature(signatureDataUrl);
@@ -354,7 +354,7 @@ export function SigningWorkflow({ token, initial }: Props) {
     setLoading(true);
     setCompleteError(null);
     setShowConfirm(false);
-    setStatusMessage("正在送出並生成 PDF，請稍候...");
+    setStatusMessage("處理中，請稍候...");
     try {
       if (!profileCommitted) {
         await persistProfile();
@@ -379,8 +379,7 @@ export function SigningWorkflow({ token, initial }: Props) {
         signerName: profile.fullName
       });
       setStatusMessage("簽署已完成，正在前往成功頁...");
-      router.push(`/sign/${token}/success?telegram=${result.telegramSent ? "sent" : "missing"}`);
-      router.refresh();
+      router.replace(`/sign/${token}/success?telegram=${result.telegramSent ? "sent" : "missing"}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "完成失敗";
       setCompleteError(message);
