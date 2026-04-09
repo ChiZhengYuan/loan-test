@@ -325,20 +325,25 @@ export function SigningWorkflow({ token, initial }: Props) {
     setSignatureFullscreenOpen(false);
   }
 
+  async function persistSignature(signatureDataUrl: string) {
+    const result = await postJson(`/api/sign/${token}/signature`, {
+      signatureDataUrl,
+      signerName: profile.fullName
+    });
+    setSignature(signatureDataUrl);
+    setSignatureCommitted(true);
+    setStatusMessage("簽名已完成");
+    setActiveStep(5);
+    router.refresh();
+    return result;
+  }
+
   async function confirmSignature(signatureDataUrl: string) {
     setLoading(true);
     setStatusMessage("正在確認簽名，請稍候...");
     closeSignatureFullscreen();
     try {
-      await postJson(`/api/sign/${token}/signature`, {
-        signatureDataUrl,
-        signerName: profile.fullName
-      });
-      setSignature(signatureDataUrl);
-      setSignatureCommitted(true);
-      setStatusMessage("簽名已完成");
-      setActiveStep(5);
-      router.refresh();
+      await persistSignature(signatureDataUrl);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "親簽保存失敗");
     } finally {
@@ -364,8 +369,11 @@ export function SigningWorkflow({ token, initial }: Props) {
       if (!otpInfo?.verified) {
         throw new Error("請先完成驗證碼驗證");
       }
-      if (!signatureCommitted || !signature) {
+      if (!signature) {
         throw new Error("請先完成親簽");
+      }
+      if (!signatureCommitted) {
+        await persistSignature(signature);
       }
       const result = await postJson(`/api/sign/${token}/complete`, {
         signatureDataUrl: signature,
