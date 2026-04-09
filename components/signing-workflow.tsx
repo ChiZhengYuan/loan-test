@@ -93,6 +93,7 @@ export function SigningWorkflow({ token, initial }: Props) {
   const [signatureFullscreenLocked, setSignatureFullscreenLocked] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
+  const [finalizing, setFinalizing] = useState(false);
   const [profileCommitted, setProfileCommitted] = useState(Boolean(initial.progress.profileComplete));
   const [consentsCommitted, setConsentsCommitted] = useState(Boolean(initial.progress.consentsComplete));
   const [gpsCommitted, setGpsCommitted] = useState(Boolean(initial.progress.gpsCaptured));
@@ -354,6 +355,7 @@ export function SigningWorkflow({ token, initial }: Props) {
     setLoading(true);
     setCompleteError(null);
     setShowConfirm(false);
+    setFinalizing(true);
     setStatusMessage("處理中，請稍候...");
     try {
       if (!profileCommitted) {
@@ -386,6 +388,7 @@ export function SigningWorkflow({ token, initial }: Props) {
       setStatusMessage(message);
       setShowConfirm(true);
     } finally {
+      setFinalizing(false);
       setLoading(false);
     }
   }
@@ -819,6 +822,18 @@ export function SigningWorkflow({ token, initial }: Props) {
               <Button type="button" onClick={completeSigning} disabled={loading}>
                 {loading ? '正在封存...' : '確認送出'}
               </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {finalizing ? (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-900 px-6 py-8 text-center text-white shadow-2xl">
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-white/20 border-t-white" />
+            <div className="text-lg font-semibold">處理中，請稍候...</div>
+            <div className="mt-2 text-sm leading-6 text-slate-300">
+              正在封存契約、生成 PDF，並送出完成結果。
             </div>
           </div>
         </div>
