@@ -25,6 +25,15 @@ function toNumber(value: unknown) {
   return typeof value === "number" ? value : Number(value);
 }
 
+async function fileExists(filePath: string) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function parseJson<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
   try {
@@ -540,7 +549,7 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
   });
   if (!contract) throw new Error("CASE_NOT_FOUND");
   requireReadyToComplete(contract as any);
-  if (contract.pdfArchive?.pdfPath) {
+  if (contract.pdfArchive?.pdfPath && (await fileExists(contract.pdfArchive.pdfPath))) {
     let telegramSent = false;
     let telegramReason: string | null = null;
     try {
@@ -583,6 +592,15 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
       telegramSent,
       telegramReason
     };
+  } else if (contract.pdfArchive?.pdfPath) {
+    await writeAuditLog({
+      contractCaseId: contract.id,
+      action: "pdf_archive_missing",
+      actorType: "system",
+      ipAddress: requestInfo?.ip ?? contract.ipAddress ?? null,
+      userAgent: requestInfo?.userAgent ?? contract.userAgent ?? null,
+      meta: { pdfPath: contract.pdfArchive.pdfPath, pdfHash: contract.pdfArchive.pdfHash }
+    });
   }
 
   const snapshot = toContractSnapshot(contract);
