@@ -5,7 +5,7 @@ import { ContractCase, ContractPdfArchive, ContractSignature } from "@prisma/cli
 import { prisma } from "./db";
 import { env } from "./env";
 import { randomOtp, randomToken, sha256 } from "./crypto";
-import { ensureContractDirs, ensureStorage, pdfRoot, safeFileName } from "./storage";
+import { contractDir, ensureContractDirs, ensureStorage, pdfRoot, safeFileName } from "./storage";
 import {
   borrowerProfileSchema,
   signProfileSchema,
@@ -280,7 +280,7 @@ export async function saveBorrowerDocuments(
   if (!contract) throw new Error("CASE_NOT_FOUND");
   if (contract.status !== "PENDING_SIGN") throw new Error("CASE_NOT_SIGNABLE");
   await ensureContractDirs(contract.contractNo);
-  const dir = path.join(process.cwd(), env.STORAGE_DIR, "contracts", contract.contractNo, "documents");
+  const dir = path.join(contractDir(contract.contractNo), "documents");
   const saved: string[] = [];
 
   for (const file of files) {
@@ -480,7 +480,7 @@ export async function saveSignature(
   if (!base64) throw new Error("INVALID_SIGNATURE");
   await ensureContractDirs(contract.contractNo);
   const signatureBytes = Buffer.from(base64, "base64");
-  const signaturePath = path.join(process.cwd(), env.STORAGE_DIR, "contracts", contract.contractNo, "signature", `signature-${Date.now()}.png`);
+  const signaturePath = path.join(contractDir(contract.contractNo), "signature", `signature-${Date.now()}.png`);
   await fs.writeFile(signaturePath, signatureBytes);
   const signatureSha256 = sha256(signatureBytes);
   const signerIdentity = contract.borrowerSnapshot?.identityNumber ?? contract.borrowerNameHint ?? parsed.signerName;
@@ -587,7 +587,7 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
 
   const snapshot = toContractSnapshot(contract);
   const signaturePath = contract.signature!.signaturePath;
-  const pdfPath = path.join(process.cwd(), env.STORAGE_DIR, "contracts", contract.contractNo, "pdf", `contract-${contract.contractNo}.pdf`);
+  const pdfPath = path.join(contractDir(contract.contractNo), "pdf", `contract-${contract.contractNo}.pdf`);
 
   await generateContractPdf({
     contract: contract as any,
@@ -723,7 +723,7 @@ export async function cancelContract(id: string, requestInfo?: { ip?: string | n
 
 export async function getPdfDownloadPath(contract: ContractCase) {
   if (contract.pdfPath) return contract.pdfPath;
-  const pathName = path.join(process.cwd(), env.STORAGE_DIR, "contracts", contract.contractNo, "pdf", `contract-${contract.contractNo}.pdf`);
+  const pathName = path.join(contractDir(contract.contractNo), "pdf", `contract-${contract.contractNo}.pdf`);
   return pathName;
 }
 
