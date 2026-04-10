@@ -133,25 +133,21 @@ export function toContractSnapshot(contract: ContractCase): ContractSnapshot {
 
 export async function makeContractNo() {
   const today = new Date();
-  const start = new Date(today);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(today);
-  end.setHours(23, 59, 59, 999);
-  const count = await prisma.contractCase.count({
-    where: {
-      createdAt: {
-        gte: start,
-        lte: end
-      }
-    }
+  const contracts = await prisma.contractCase.findMany({
+    select: { contractNo: true }
   });
-  return `BV${format(today, "yyyyMMdd")}-${String(count + 1).padStart(3, "0")}`;
+  const maxSequence = contracts.reduce((max, contract) => {
+    const match = contract.contractNo.match(/^BV\d{8}-(\d{3})$/);
+    if (!match) return max;
+    return Math.max(max, Number(match[1]));
+  }, 0);
+  return `BV${format(today, "yyyyMMdd")}-${String(maxSequence + 1).padStart(3, "0")}`;
 }
 
 export async function createContractCase(input: unknown, actorId?: string | null) {
   await ensureStorage();
   const data = contractCreateSchema.parse(input);
-  const contractNo = await makeContractNo();
+  let contractNo = await makeContractNo();
   const signToken = randomToken(32);
   const publicSigningUrl = `${env.APP_URL.replace(/\/$/, "")}/sign/${signToken}`;
   const lenderSnapshot = { name: data.lenderName, id: data.lenderId, phone: data.lenderPhone };
@@ -208,15 +204,47 @@ export async function createContractCase(input: unknown, actorId?: string | null
       vehicleSnapshotJson: JSON.stringify(vehicleSnapshot),
       clauseSnapshotJson: JSON.stringify(frozenContractDocument)
     }
+  }).catch(async (error) => {
+    if (error instanceof Error && error.message.includes("Unique constraint failed on the fields: (`contractNo`)")) {
+      contractNo = await makeContractNo();
+      return prisma.contractCase.create({
+        data: {
+          contractNo,
+          signToken,
+          publicSigningUrl,
+          lenderName: data.lenderName,
+          lenderId: data.lenderId,
+          lenderPhone: data.lenderPhone,
+          borrowerNameHint: data.borrowerNameHint ?? null,
+          borrowerPhone: data.borrowerPhone,
+          vehiclePlate: data.vehiclePlate,
+          vehicleModel: data.vehicleModel,
+          vehicleColor: data.vehicleColor,
+          vehicleYear: data.vehicleYear,
+          borrowStartAt: new Date(data.borrowStartAt),
+          borrowEndAt: new Date(data.borrowEndAt),
+          depositAmount: data.depositAmount,
+          overduePenaltyPerDay: data.overduePenaltyPerDay,
+          specialTerms: data.specialTerms,
+          courtJurisdiction: data.courtJurisdiction,
+          lenderSnapshotJson: JSON.stringify(lenderSnapshot),
+          borrowerSnapshotJson: JSON.stringify(borrowerHint),
+          vehicleSnapshotJson: JSON.stringify(vehicleSnapshot),
+          clauseSnapshotJson: JSON.stringify(frozenContractDocument)
+        }
+      });
+    }
+    throw error;
   });
 
-  await ensureContractDirs(contractNo);
+  contractNo = contract.contractNo;
+  await ensureContractDirs(contract.contractNo);
   await writeAuditLog({
     contractCaseId: contract.id,
     action: "create_case",
     actorType: "admin",
     actorId: actorId ?? null,
-    meta: { contractNo, publicSigningUrl }
+    meta: { contractNo: contract.contractNo, publicSigningUrl }
   });
 
   return contract;
