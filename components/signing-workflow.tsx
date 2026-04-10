@@ -381,7 +381,9 @@ export function SigningWorkflow({ token, initial }: Props) {
         signerName: profile.fullName
       });
       setStatusMessage("簽署已完成，正在前往成功頁...");
-      router.replace(`/sign/${token}/success?telegram=${result.telegramSent ? "sent" : "missing"}`);
+      const nextToken = result.nextPublicSigningUrl ? new URL(result.nextPublicSigningUrl).pathname.split("/").pop() : null;
+      const nextQuery = nextToken ? `&next=${encodeURIComponent(nextToken)}` : "";
+      router.replace(`/sign/${token}/success?telegram=${result.telegramSent ? "sent" : "missing"}${nextQuery}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "完成失敗";
       setCompleteError(message);

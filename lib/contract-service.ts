@@ -34,6 +34,65 @@ async function fileExists(filePath: string) {
   }
 }
 
+async function createNextSigningRound(contract: ContractCase) {
+  const snapshot = toContractSnapshot(contract);
+  const nextContractNo = await makeContractNo();
+  const nextSignToken = randomToken(32);
+  const publicSigningUrl = `${env.APP_URL.replace(/\/$/, "")}/sign/${nextSignToken}`;
+  const nextDocument = buildLegalDocumentText(snapshot, nextContractNo);
+
+  const nextContract = await prisma.contractCase.create({
+    data: {
+      contractNo: nextContractNo,
+      signToken: nextSignToken,
+      publicSigningUrl,
+      status: "PENDING_SIGN",
+      createdByAdminId: contract.createdByAdminId,
+      lenderName: contract.lenderName,
+      lenderId: contract.lenderId,
+      lenderPhone: contract.lenderPhone,
+      borrowerNameHint: contract.borrowerNameHint,
+      borrowerPhone: contract.borrowerPhone,
+      vehiclePlate: contract.vehiclePlate,
+      vehicleModel: contract.vehicleModel,
+      vehicleColor: contract.vehicleColor,
+      vehicleYear: contract.vehicleYear,
+      borrowStartAt: contract.borrowStartAt,
+      borrowEndAt: contract.borrowEndAt,
+      depositAmount: contract.depositAmount,
+      overduePenaltyPerDay: contract.overduePenaltyPerDay,
+      specialTerms: contract.specialTerms,
+      courtJurisdiction: contract.courtJurisdiction,
+      lenderSnapshotJson: contract.lenderSnapshotJson,
+      borrowerSnapshotJson: contract.borrowerSnapshotJson,
+      vehicleSnapshotJson: contract.vehicleSnapshotJson,
+      clauseSnapshotJson: JSON.stringify(nextDocument)
+    }
+  });
+
+  await ensureContractDirs(nextContract.contractNo);
+
+  await writeAuditLog({
+    contractCaseId: contract.id,
+    action: "spawn_next_round",
+    actorType: "system",
+    meta: {
+      nextContractNo: nextContract.contractNo,
+      nextSignToken: nextContract.signToken,
+      nextPublicSigningUrl: nextContract.publicSigningUrl
+    }
+  });
+
+  return nextContract;
+}
+
+export async function getLatestPendingContract() {
+  return prisma.contractCase.findFirst({
+    where: { status: "PENDING_SIGN" },
+    orderBy: { createdAt: "desc" }
+  });
+}
+
 export function parseJson<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
   try {
@@ -712,13 +771,30 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
     }
   });
 
+  let nextRound: ContractCase | null = null;
+  try {
+    nextRound = await createNextSigningRound(contract);
+  } catch (error) {
+    console.error("[complete] failed to spawn next round", error);
+    await writeAuditLog({
+      contractCaseId: contract.id,
+      action: "spawn_next_round_failed",
+      actorType: "system",
+      ipAddress: requestInfo?.ip ?? null,
+      userAgent: requestInfo?.userAgent ?? null,
+      meta: { error: error instanceof Error ? error.message : "UNKNOWN" }
+    });
+  }
+
   return {
     pdfPath,
     pdfHash,
     signedAt: archivedAt.toISOString(),
     alreadyGenerated: false,
     telegramSent,
-    telegramReason
+    telegramReason,
+    nextContractNo: nextRound?.contractNo ?? null,
+    nextPublicSigningUrl: nextRound?.publicSigningUrl ?? null
   };
 }
 

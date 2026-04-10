@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { getContractByToken } from "@/lib/contract-service";
+import { getContractByToken, getLatestPendingContract } from "@/lib/contract-service";
+import { DEMO_SIGN_TOKEN } from "@/lib/demo";
 import { SigningWorkflow } from "@/components/signing-workflow";
 import { writeAuditLog } from "@/lib/audit";
 import { getIpFromHeaders, getUserAgentFromHeaders } from "@/lib/request";
@@ -17,10 +18,20 @@ function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
 type Params = { params: Promise<{ token: string }> };
 
 export default async function SignPage({ params }: Params) {
-  try {
-    const { token } = await params;
-    const contract = await getContractByToken(token);
+  const { token } = await params;
+  const contract = await getContractByToken(token);
+  if (!contract || contract.status !== "PENDING_SIGN") {
+    if (token === DEMO_SIGN_TOKEN) {
+      const nextContract = await getLatestPendingContract();
+      if (nextContract?.signToken && nextContract.signToken !== token) {
+        redirect(`/sign/${nextContract.signToken}`);
+      }
+    }
     if (!contract) notFound();
+    if (contract.status !== "PENDING_SIGN") notFound();
+  }
+
+  try {
     const document = safeJsonParse<{ sections: any[]; specialTerms?: string; courtJurisdiction?: string }>(contract.clauseSnapshotJson, { sections: [] });
     const requestHeaders = await headers();
     await writeAuditLog({

@@ -19,14 +19,16 @@ function formatTaiwanDateTime(value: string | number | Date) {
   return `${lookup("year")}/${lookup("month")}/${lookup("day")} ${lookup("dayPeriod")}${lookup("hour")}:${lookup("minute")}:${lookup("second")}`;
 }
 
-type Params = { params: Promise<{ token: string }>; searchParams?: Promise<{ telegram?: string }> };
+type Params = { params: Promise<{ token: string }>; searchParams?: Promise<{ telegram?: string; next?: string }> };
 
-export default async function SignSuccessPage({ params }: Params) {
+export default async function SignSuccessPage({ params, searchParams }: Params) {
   const { token } = await params;
+  const query = (await searchParams) ?? {};
   const contract = await getContractByToken(token);
   if (!contract) notFound();
 
   const pdfPath = await ensureFinalPdf(contract);
+  const nextToken = query.next?.trim() || null;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
@@ -64,6 +66,14 @@ export default async function SignSuccessPage({ params }: Params) {
                 返回首頁
               </Link>
             </div>
+
+            {nextToken ? (
+              <div className="flex justify-center">
+                <Link href={`/sign/${nextToken}`} className="inline-flex h-11 items-center justify-center rounded-md bg-slate-900 px-8 text-sm font-medium text-white transition-colors hover:bg-slate-800">
+                  前往下一輪簽署
+                </Link>
+              </div>
+            ) : null}
 
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
               這份 PDF 為簽署當下封存版本，內容不可覆蓋修改。
