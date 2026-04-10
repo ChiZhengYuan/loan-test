@@ -31,6 +31,7 @@ const appErrors: Record<string, string> = {
   OTP_TOO_MANY_ATTEMPTS: "驗證碼嘗試次數過多，請稍後再試。",
   OTP_INVALID: "驗證碼錯誤。",
   INVALID_SIGNATURE: "簽名資料不正確，請重新簽名。",
+  SIGNATURE_FILE_MISSING: "親簽檔已遺失，請重新完成親簽。",
   ALREADY_SIGNED: "此案件已完成簽署。",
   NOT_FOUND: "找不到資料。",
   PROFILE_SAVE_FAILED: "資料保存失敗。",

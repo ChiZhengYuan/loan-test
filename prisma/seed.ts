@@ -3,9 +3,11 @@ async function main() {
   process.env.APP_SESSION_SECRET = process.env.APP_SESSION_SECRET ?? "change-me-change-me-change-me-1234";
 
   const { prisma } = await import("../lib/db");
+  const { ensureStorage, contractDir } = await import("../lib/storage");
   const { format } = await import("date-fns");
   const { DEMO_SIGN_TOKEN } = await import("../lib/demo");
   const { buildLegalDocumentText } = await import("../lib/contract");
+  const fs = await import("fs/promises");
 
   const today = new Date();
   const start = new Date(today);
@@ -67,12 +69,47 @@ async function main() {
     clauseSnapshotJson: JSON.stringify(document)
   };
 
-  const latest = await prisma.contractCase.findFirst({ orderBy: { createdAt: "desc" } });
-  if (latest) {
-    await prisma.contractCase.update({ where: { id: latest.id }, data });
+  const existing = await prisma.contractCase.findUnique({ where: { signToken: DEMO_SIGN_TOKEN } });
+  if (existing) {
+    await prisma.$transaction(async (tx) => {
+      await tx.borrowerDocument.deleteMany({ where: { contractCaseId: existing.id } });
+      await tx.contractConsentLog.deleteMany({ where: { contractCaseId: existing.id } });
+      await tx.contractOtpLog.deleteMany({ where: { contractCaseId: existing.id } });
+      await tx.contractSignature.deleteMany({ where: { contractCaseId: existing.id } });
+      await tx.contractPdfArchive.deleteMany({ where: { contractCaseId: existing.id } });
+      await tx.borrowerSnapshot.deleteMany({ where: { contractCaseId: existing.id } });
+      await tx.contractCase.update({
+        where: { id: existing.id },
+        data: {
+          ...data,
+          status: "PENDING_SIGN",
+          consentsSnapshotJson: null,
+          signedAt: null,
+          ipAddress: null,
+          userAgent: null,
+          gpsLatitude: null,
+          gpsLongitude: null,
+          gpsAccuracy: null,
+          gpsStatus: null,
+          gpsCapturedAt: null,
+          otpCodeHash: null,
+          otpSentAt: null,
+          otpVerifiedAt: null,
+          otpAttemptCount: 0,
+          pdfPath: null,
+          pdfHash: null,
+          archivedAt: null,
+          cancelledAt: null
+        }
+      });
+    });
   } else {
     await prisma.contractCase.create({ data });
   }
+
+  await ensureStorage();
+  const demoDir = contractDir(contractNo);
+  await fs.rm(demoDir, { recursive: true, force: true }).catch(() => {});
 
   console.log(`Seeded demo contract: ${contractNo}`);
 }

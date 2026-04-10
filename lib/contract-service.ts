@@ -398,7 +398,8 @@ export async function sendOtp(token: string, requestInfo?: { ip?: string | null;
     throw new Error("OTP_TOO_SOON");
   }
 
-  const code = process.env.OTP_MOCK_ENABLED === "false" ? randomOtp() : (process.env.OTP_DEFAULT_CODE ?? randomOtp());
+  const configuredMockCode = process.env.OTP_DEFAULT_CODE?.trim();
+  const code = configuredMockCode || randomOtp();
   const hash = sha256(code);
   const otpSentAt = new Date();
   await prisma.contractCase.update({
@@ -417,7 +418,7 @@ export async function sendOtp(token: string, requestInfo?: { ip?: string | null;
       otpHash: hash,
       attemptNo: 0,
       status: "sent",
-      metaJson: JSON.stringify({ mock: process.env.OTP_MOCK_ENABLED !== "false", code })
+      metaJson: JSON.stringify({ mock: true, code })
     }
   });
   await writeAuditLog({
@@ -431,7 +432,7 @@ export async function sendOtp(token: string, requestInfo?: { ip?: string | null;
   return {
     phone: contract.borrowerPhone,
     otpSentAt,
-    mockCode: process.env.OTP_MOCK_ENABLED !== "false" ? code : undefined,
+    mockCode: code,
     retryAfterSeconds: 60
   };
 }
@@ -549,6 +550,9 @@ export async function completeContract(token: string, requestInfo?: { ip?: strin
   });
   if (!contract) throw new Error("CASE_NOT_FOUND");
   requireReadyToComplete(contract as any);
+  if (!contract.signature?.signaturePath || !(await fileExists(contract.signature.signaturePath))) {
+    throw new Error("SIGNATURE_FILE_MISSING");
+  }
   if (contract.pdfArchive?.pdfPath && (await fileExists(contract.pdfArchive.pdfPath))) {
     let telegramSent = false;
     let telegramReason: string | null = null;
