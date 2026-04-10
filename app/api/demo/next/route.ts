@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL(`/sign/${contract.signToken}`, request.url), 303);
   } catch (error) {
     console.error("[demo next] failed", error);
-    return NextResponse.json({ ok: false, error: "建立示範案件失敗" }, { status: 400 });
+    const message = error instanceof Error ? error.message : "建立示範案件失敗";
+    return NextResponse.json({ ok: false, error: "建立示範案件失敗", detail: message }, { status: 400 });
   }
 }
