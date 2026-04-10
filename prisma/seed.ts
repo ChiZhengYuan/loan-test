@@ -4,26 +4,11 @@ async function main() {
 
   const { prisma } = await import("../lib/db");
   const { ensureStorage, contractDir } = await import("../lib/storage");
-  const { format } = await import("date-fns");
   const { DEMO_SIGN_TOKEN } = await import("../lib/demo");
+  const { makeContractNo } = await import("../lib/contract-service");
   const { buildLegalDocumentText } = await import("../lib/contract");
   const fs = await import("fs/promises");
 
-  const today = new Date();
-  const start = new Date(today);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(today);
-  end.setHours(23, 59, 59, 999);
-  const count = await prisma.contractCase.count({
-    where: {
-      createdAt: {
-        gte: start,
-        lte: end
-      }
-    }
-  });
-
-  const contractNo = `BV${format(today, "yyyyMMdd")}-${String(count + 1).padStart(3, "0")}`;
   const publicSigningUrl = `${process.env.APP_URL.replace(/\/$/, "")}/sign/${DEMO_SIGN_TOKEN}`;
   const snapshot = {
     lender: { name: "王大明", id: "A123456789", phone: "0912345678" },
@@ -42,6 +27,8 @@ async function main() {
       courtJurisdiction: "臺灣臺北地方法院"
     }
   };
+  const existing = await prisma.contractCase.findUnique({ where: { signToken: DEMO_SIGN_TOKEN } });
+  const contractNo = existing?.contractNo ?? (await makeContractNo());
   const document = buildLegalDocumentText(snapshot, contractNo);
   const data = {
     contractNo,
@@ -68,8 +55,6 @@ async function main() {
     vehicleSnapshotJson: JSON.stringify(snapshot.vehicle),
     clauseSnapshotJson: JSON.stringify(document)
   };
-
-  const existing = await prisma.contractCase.findUnique({ where: { signToken: DEMO_SIGN_TOKEN } });
   if (existing) {
     await prisma.$transaction(async (tx) => {
       await tx.borrowerDocument.deleteMany({ where: { contractCaseId: existing.id } });
