@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createContractCase } from "@/lib/contract-service";
+import { env } from "@/lib/env";
 import { getRequestIp, getRequestUserAgent } from "@/lib/request";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       meta: { contractNo: contract.contractNo, signToken: contract.signToken }
     });
 
-    return NextResponse.redirect(new URL(`/sign/${contract.signToken}`, request.url), 303);
+    return NextResponse.redirect(new URL(`/sign/${contract.signToken}`, env.APP_URL), 303);
   } catch (error) {
     console.error("[demo next] failed", error);
     const message = error instanceof Error ? error.message : "建立示範案件失敗";
