@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -85,6 +85,7 @@ export function SigningWorkflow({ token, initial }: Props) {
   const [gpsState, setGpsState] = useState<any>(null);
   const [otp, setOtp] = useState("");
   const [otpInfo, setOtpInfo] = useState<{ sentAt?: string; verified?: boolean; count?: number; mockCode?: string } | null>(null);
+  const [otpStatusMessage, setOtpStatusMessage] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -98,6 +99,8 @@ export function SigningWorkflow({ token, initial }: Props) {
   const [consentsCommitted, setConsentsCommitted] = useState(Boolean(initial.progress.consentsComplete));
   const [gpsCommitted, setGpsCommitted] = useState(Boolean(initial.progress.gpsCaptured));
   const [signatureCommitted, setSignatureCommitted] = useState(Boolean(initial.progress.signatureCaptured));
+  const otpCardRef = useRef<HTMLDivElement | null>(null);
+  const otpInputRef = useRef<HTMLInputElement | null>(null);
 
   const liveSnapshot = useMemo(() => {
     const snapshot = initial.snapshot;
@@ -146,6 +149,14 @@ export function SigningWorkflow({ token, initial }: Props) {
       window.document.body.style.overflow = originalOverflow;
     };
   }, [signatureFullscreenOpen]);
+
+  function focusOtpInput() {
+    window.setTimeout(() => {
+      otpCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      otpInputRef.current?.focus();
+      otpInputRef.current?.select();
+    }, 120);
+  }
 
   async function postJson(url: string, body: unknown) {
     const response = await fetch(url, {
@@ -284,13 +295,20 @@ export function SigningWorkflow({ token, initial }: Props) {
   async function sendOtp() {
     setLoading(true);
     setStatusMessage("正在發送驗證碼，請稍候...");
+    setOtpStatusMessage("正在發送驗證碼，請稍候...");
     try {
       const result = await postJson(`/api/sign/${token}/send-otp`, {});
       setOtpCooldown(result.retryAfterSeconds ?? 60);
       setOtpInfo({ sentAt: result.otpSentAt, mockCode: result.mockCode });
+      setActiveStep(4);
       setStatusMessage(result.mockCode ? `驗證碼已送出：${result.mockCode}` : "驗證碼已送出");
+      setOtpStatusMessage(result.mockCode ? `驗證碼已送出，可直接輸入下方 6 碼驗證碼：${result.mockCode}` : "驗證碼已送出，請輸入 6 碼驗證碼。");
+      focusOtpInput();
     } catch (error) {
-      setStatusMessage(error instanceof Error && error.message === "OTP_TOO_SOON" ? "驗證碼尚在冷卻中，請稍後再試" : error instanceof Error ? error.message : "驗證碼發送失敗");
+      const message = error instanceof Error && error.message === "OTP_TOO_SOON" ? "驗證碼尚在冷卻中，請稍後再試" : error instanceof Error ? error.message : "驗證碼發送失敗";
+      setStatusMessage(message);
+      setOtpStatusMessage(message);
+      focusOtpInput();
     } finally {
       setLoading(false);
     }
@@ -299,13 +317,18 @@ export function SigningWorkflow({ token, initial }: Props) {
   async function verifyOtp() {
     setLoading(true);
     setStatusMessage("正在驗證驗證碼，請稍候...");
+    setOtpStatusMessage("正在驗證驗證碼，請稍候...");
     try {
       const result = await postJson(`/api/sign/${token}/verify-otp`, { code: otp });
       setOtpInfo((current) => ({ ...(current ?? {}), verified: result.verified, count: result.attemptCount }));
       setStatusMessage(result.verified ? "驗證碼已完成" : "驗證碼驗證失敗");
+      setOtpStatusMessage(result.verified ? "驗證碼已完成，現在可以進入親簽。" : "驗證碼驗證失敗，請再確認一次。");
       if (result.verified) setActiveStep(4);
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "驗證碼驗證失敗");
+      const message = error instanceof Error ? error.message : "驗證碼驗證失敗";
+      setStatusMessage(message);
+      setOtpStatusMessage(message);
+      focusOtpInput();
     } finally {
       setLoading(false);
     }
@@ -669,7 +692,8 @@ export function SigningWorkflow({ token, initial }: Props) {
               </CardContent>
             </Card>
 
-            <Card>
+            <div ref={otpCardRef}>
+              <Card>
               <CardHeader>
                 <CardTitle>Step 5 驗證碼驗證</CardTitle>
                 <CardDescription>完成驗證碼驗證後，才可進入親簽。</CardDescription>
@@ -679,13 +703,47 @@ export function SigningWorkflow({ token, initial }: Props) {
                   <Button type="button" onClick={sendOtp} disabled={loading || otpCooldown > 0}>
                     {otpCooldown > 0 ? `重新發送 ${otpCooldown}s` : "發送驗證碼"}
                   </Button>
-                  <Input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} maxLength={6} placeholder="輸入 6 碼 OTP" className="max-w-xs" />
+                  <Input
+                    ref={otpInputRef}
+                    name="one-time-code"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && otp.length === 6 && !loading) {
+                        e.preventDefault();
+                        void verifyOtp();
+                      }
+                    }}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]*"
+                    enterKeyHint="done"
+                    maxLength={6}
+                    placeholder="輸入 6 碼 OTP"
+                    className="w-full sm:max-w-xs"
+                  />
                   <Button type="button" onClick={verifyOtp} disabled={loading || otp.length !== 6}>{otpInfo?.verified ? "驗證碼已完成" : loading ? "驗證中..." : "驗證"}</Button>
                 </div>
+                {otpStatusMessage ? (
+                  <div
+                    className={cn(
+                      "rounded-xl border px-3 py-2 text-xs leading-6",
+                      otpInfo?.verified
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                        : "border-slate-200 bg-slate-50 text-slate-700"
+                    )}
+                  >
+                    {otpStatusMessage}
+                  </div>
+                ) : null}
                 {otpInfo?.mockCode ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">驗證碼：{otpInfo.mockCode}</div> : null}
-                <div className="text-xs text-muted-foreground">已送出時間：{otpInfo?.sentAt ? formatTaiwanDateTime(otpInfo.sentAt) : "尚未送出"}</div>
+                <div className="text-xs text-muted-foreground">
+                  已送出時間：{otpInfo?.sentAt ? formatTaiwanDateTime(otpInfo.sentAt) : "尚未送出"}
+                  {typeof otpInfo?.count === "number" ? `，驗證次數：${otpInfo.count}` : ""}
+                </div>
               </CardContent>
-            </Card>
+              </Card>
+            </div>
 
             <Card>
               <CardHeader>
